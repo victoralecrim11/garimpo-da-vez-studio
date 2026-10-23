@@ -93,3 +93,13 @@ python integration\ml_bridge.py --root "..\garimpo-da-vez" --action search --que
 O primeiro comando imprime JSON com categorias. O segundo solicita a busca real, sujeita ao acesso concedido pelo Mercado Livre. A ponte não exibe os tokens.
 
 **Repositórios:** [Motor Python](https://github.com/victoralecrim11/garimpo-da-vez) · [Studio desktop](https://github.com/victoralecrim11/garimpo-da-vez-studio).
+
+
+## Padrão de commits e contribuições
+
+Os próximos commits deste repositório devem ter **título em português** e **descrição detalhada em português**, com as seções `Alterações:`, `Motivação:` e `Validação:`. Escreva o que mudou, por que mudou e como verificou; não declare testes não realizados como aprovados.
+
+- Consulte [CONTRIBUTING.md](CONTRIBUTING.md) para a convenção completa e um exemplo de mensagem.
+- Configure o modelo local com `git config --local commit.template .gitmessage`.
+- O workflow [Validar mensagens de commits em português](.github/workflows/validar-commits.yml) verifica os commits novos. O verificador confere a estrutura do texto, mas não garante sozinho que todas as palavras estejam em português.
+- O histórico anterior permanece inalterado para preservar os SHAs e não interromper cópias locais ou integrações.
