@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS products (
   id TEXT PRIMARY KEY,
   source TEXT NOT NULL DEFAULT 'Mercado Livre',
   external_id TEXT NOT NULL DEFAULT '',
+  listing_url TEXT NOT NULL DEFAULT '',
   name TEXT NOT NULL,
   category TEXT NOT NULL DEFAULT '',
   niche TEXT NOT NULL DEFAULT '',
