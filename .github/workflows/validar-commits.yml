@@ -1,0 +1,49 @@
+name: Validar mensagens de commits em português
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verificar-mensagens:
+    name: Conferir títulos e descrições
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar o histórico completo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Preparar o Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Executar testes do validador
+        run: python -m unittest discover -s tools/git/tests -v
+
+      - name: Validar commits novos
+        shell: bash
+        env:
+          EVENTO: ${{ github.event_name }}
+          ANTES: ${{ github.event.before }}
+          ATUAL: ${{ github.sha }}
+          BASE_PR: ${{ github.event.pull_request.base.sha }}
+          CABECA_PR: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENTO" = "pull_request" ]; then
+            INTERVALO="$BASE_PR..$CABECA_PR"
+          elif [[ "$ANTES" =~ ^0+$ ]] || [ -z "$ANTES" ]; then
+            INTERVALO="$ATUAL"
+          else
+            INTERVALO="$ANTES..$ATUAL"
+          fi
+          echo "Validando commits novos no intervalo informado."
+          python tools/git/validar_mensagens.py --intervalo "$INTERVALO"
