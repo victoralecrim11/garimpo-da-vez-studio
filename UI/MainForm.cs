@@ -30,6 +30,16 @@ public sealed class MainForm : Form
     private readonly TextBox _niche = TextInput();
     private readonly TextBox _description = TextInput(multiline: true);
     private readonly TextBox _affiliateUrl = TextInput();
+    private readonly TextBox _listingUrl = TextInput();
+    private readonly TextBox _mlRoot = TextInput();
+    private readonly TextBox _mlQuery = TextInput();
+    private readonly ComboBox _mlCategories = new();
+    private readonly ComboBox _mlChildren = new();
+    private readonly DataGridView _mlResults = new();
+    private readonly CheckBox _mlSyncQueue = new();
+    private readonly Label _mlStatus = new();
+    private bool _mlLoadingCategories;
+    private bool _mlBusy;
     private readonly TextBox _originalPath = TextInput();
     private readonly PictureBox _originalPreview = Picture();
     private readonly PictureBox _studioPreview = Picture();
@@ -162,6 +172,7 @@ public sealed class MainForm : Form
         _tabs.Padding = new Point(22, 11);
         main.Controls.Add(_tabs, 1, 0);
         _tabs.TabPages.Add(BuildProductTab());
+        _tabs.TabPages.Add(BuildMarketplaceTab());
         _tabs.TabPages.Add(BuildStudioTab());
         _tabs.TabPages.Add(BuildVersionsTab());
         _tabs.TabPages.Add(BuildPinTab());
@@ -183,6 +194,8 @@ public sealed class MainForm : Form
         form.Controls.Add(Field("Nicho", _niche));
         form.Controls.Add(Field("Descrição real do produto", _description, 132));
         form.Controls.Add(Field("Link oficial do afiliado", _affiliateUrl));
+        _listingUrl.ReadOnly = true;
+        form.Controls.Add(Field("URL do anúncio original (não comissionada)", _listingUrl));
         var buttons = ButtonRow(468);
         buttons.Controls.Add(ButtonOf("Salvar produto", () => SaveCurrent(), true));
         buttons.Controls.Add(ButtonOf("Selecionar foto", ImportOriginal));
@@ -198,9 +211,247 @@ public sealed class MainForm : Form
         return page;
     }
 
+
+    private TabPage BuildMarketplaceTab()
+    {
+        var page = Page("02 · Garimpo Mercado Livre");
+        var panel = Stack();
+        panel.Dock = DockStyle.Fill;
+        panel.Controls.Add(Section("CATÁLOGO OFICIAL · MERCADO LIVRE"));
+        _mlRoot.Text = MercadoLivreBridgeService.SavedRepository;
+        panel.Controls.Add(Field("Caminho para a pasta do projeto Python garimpo-da-vez", _mlRoot));
+        var setup = ButtonRow(810);
+        setup.Controls.Add(ButtonOf("Selecionar pasta Python", ChoosePythonRoot, false, 205));
+        setup.Controls.Add(ButtonOf("Carregar categorias", async () => await LoadMlCategoriesAsync(), true, 205));
+        panel.Controls.Add(setup);
+
+        _mlQuery.PlaceholderText = "Ex.: luminária LED, organizador, notebook gamer...";
+        panel.Controls.Add(Field("Palavras-chave", _mlQuery));
+        foreach (var combo in new[] { _mlCategories, _mlChildren })
+        {
+            combo.Width = 445;
+            combo.Height = 37;
+            combo.DropDownStyle = ComboBoxStyle.DropDownList;
+            combo.BackColor = Card;
+            combo.ForeColor = Foreground;
+        }
+        _mlCategories.Items.Add(new MercadoLivreCategory { Name = "Todas as categorias" });
+        _mlCategories.SelectedIndex = 0;
+        _mlChildren.Items.Add(new MercadoLivreCategory { Name = "Todas as subcategorias" });
+        _mlChildren.SelectedIndex = 0;
+        _mlCategories.SelectedIndexChanged += async (_, _) => await LoadMlChildrenAsync();
+        panel.Controls.Add(Field("Categoria oficial", _mlCategories));
+        panel.Controls.Add(Field("Subcategoria (opcional)", _mlChildren));
+
+        var searchRow = ButtonRow(810);
+        searchRow.Controls.Add(ButtonOf("Pesquisar anúncios", async () => await SearchMlAsync(), true, 210));
+        searchRow.Controls.Add(ButtonOf("Abrir anúncio selecionado", OpenSelectedMlListing, false, 225));
+        panel.Controls.Add(searchRow);
+
+        _mlResults.Width = 930;
+        _mlResults.Height = 275;
+        _mlResults.BackgroundColor = Card;
+        _mlResults.ForeColor = Color.Black;
+        _mlResults.ReadOnly = true;
+        _mlResults.AllowUserToAddRows = false;
+        _mlResults.AllowUserToDeleteRows = false;
+        _mlResults.MultiSelect = false;
+        _mlResults.RowHeadersVisible = false;
+        _mlResults.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+        _mlResults.AutoGenerateColumns = false;
+        _mlResults.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "ID", DataPropertyName = "Id", Width = 125 });
+        _mlResults.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Produto / anúncio", DataPropertyName = "Title", Width = 420 });
+        _mlResults.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Categoria", DataPropertyName = "CategoryId", Width = 125 });
+        _mlResults.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Preço (informativo)", DataPropertyName = "Price", Width = 135, DefaultCellStyle = new DataGridViewCellStyle { Format = "N2" } });
+        _mlResults.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Moeda", DataPropertyName = "Currency", Width = 80 });
+        panel.Controls.Add(_mlResults);
+
+        _mlSyncQueue.Text = "Também registrar na fila Python (pins.json / Excel), sem aprovar imagem ou link";
+        _mlSyncQueue.Checked = true;
+        _mlSyncQueue.Width = 790;
+        _mlSyncQueue.Height = 32;
+        _mlSyncQueue.ForeColor = Foreground;
+        panel.Controls.Add(_mlSyncQueue);
+        panel.Controls.Add(ButtonOf("Importar anúncio selecionado", async () => await ImportMlSelectedAsync(), true, 280));
+        _mlStatus.ForeColor = Muted;
+        _mlStatus.Width = 900;
+        _mlStatus.Height = 55;
+        _mlStatus.Text = "A API pode negar busca com HTTP 401/403. Nenhum link de afiliado é criado automaticamente.";
+        panel.Controls.Add(_mlStatus);
+        page.Controls.Add(panel);
+        return page;
+    }
+
+    private void ChoosePythonRoot()
+    {
+        using var picker = new FolderBrowserDialog { Description = "Selecione o repositório garimpo-da-vez (pasta com automation)" };
+        if (Directory.Exists(_mlRoot.Text)) picker.SelectedPath = _mlRoot.Text;
+        if (picker.ShowDialog() != DialogResult.OK) return;
+        try
+        {
+            MercadoLivreBridgeService.SaveRepository(picker.SelectedPath);
+            _mlRoot.Text = picker.SelectedPath;
+            _mlStatus.Text = "Repositório Python configurado. Clique em Carregar categorias.";
+        }
+        catch (Exception ex) { ShowError(ex); }
+    }
+
+    private void BeginMlOperation()
+    {
+        if (_mlBusy) throw new InvalidOperationException("Aguarde a consulta em andamento.");
+        _mlBusy = true;
+        _mlStatus.Text = "Consultando a API oficial por meio do Python...";
+    }
+
+    private void EndMlOperation() => _mlBusy = false;
+
+    private async Task LoadMlCategoriesAsync()
+    {
+        if (_mlBusy) return;
+        try
+        {
+            BeginMlOperation();
+            MercadoLivreBridgeService.SaveRepository(_mlRoot.Text);
+            var result = await MercadoLivreBridgeService.CategoriesAsync(_mlRoot.Text);
+            _mlLoadingCategories = true;
+            _mlCategories.Items.Clear();
+            _mlCategories.Items.Add(new MercadoLivreCategory { Name = "Todas as categorias" });
+            foreach (var category in result.Categories) _mlCategories.Items.Add(category);
+            _mlCategories.SelectedIndex = 0;
+            _mlLoadingCategories = false;
+            _mlStatus.Text = result.Categories.Count + " categorias carregadas (" + result.Origin + ").";
+        }
+        catch (Exception ex) { _mlStatus.Text = ex.Message; ShowError(ex); }
+        finally { _mlLoadingCategories = false; EndMlOperation(); }
+    }
+
+    private async Task LoadMlChildrenAsync()
+    {
+        if (_mlLoadingCategories || _mlBusy) return;
+        var selected = _mlCategories.SelectedItem as MercadoLivreCategory;
+        _mlChildren.Items.Clear();
+        _mlChildren.Items.Add(new MercadoLivreCategory { Name = "Todas as subcategorias" });
+        _mlChildren.SelectedIndex = 0;
+        if (selected is null || string.IsNullOrWhiteSpace(selected.Id)) return;
+        try
+        {
+            BeginMlOperation();
+            var result = await MercadoLivreBridgeService.ChildrenAsync(_mlRoot.Text, selected.Id);
+            foreach (var category in result.Categories) _mlChildren.Items.Add(category);
+            _mlStatus.Text = result.Categories.Count + " subcategorias carregadas.";
+        }
+        catch (Exception ex) { _mlStatus.Text = "Subcategorias indisponíveis: " + ex.Message; }
+        finally { EndMlOperation(); }
+    }
+
+    private async Task SearchMlAsync()
+    {
+        if (_mlBusy) return;
+        var query = _mlQuery.Text.Trim();
+        if (query.Length is < 2 or > 100)
+        {
+            MessageBox.Show("Informe uma busca de 2 a 100 caracteres.");
+            return;
+        }
+        try
+        {
+            BeginMlOperation();
+            MercadoLivreBridgeService.SaveRepository(_mlRoot.Text);
+            var category = (_mlChildren.SelectedItem as MercadoLivreCategory)?.Id;
+            if (string.IsNullOrWhiteSpace(category))
+                category = (_mlCategories.SelectedItem as MercadoLivreCategory)?.Id;
+            var result = await MercadoLivreBridgeService.SearchAsync(_mlRoot.Text, query, category ?? "");
+            _mlResults.DataSource = null;
+            _mlResults.DataSource = result.Items;
+            _mlStatus.Text = result.Items.Count + " anúncio(s) real(is) retornado(s); preço sujeito a mudanças.";
+        }
+        catch (Exception ex)
+        {
+            _mlResults.DataSource = null;
+            _mlStatus.Text = ex.Message;
+            ShowError(ex);
+        }
+        finally { EndMlOperation(); }
+    }
+
+    private MercadoLivreListing? SelectedMlListing() =>
+        _mlResults.CurrentRow?.DataBoundItem as MercadoLivreListing;
+
+    private static bool ValidMercadoLivreListing(MercadoLivreListing listing)
+    {
+        if (!System.Text.RegularExpressions.Regex.IsMatch(listing.Id, @"^MLB\d{6,18}$"))
+            return false;
+        if (!Uri.TryCreate(listing.Permalink, UriKind.Absolute, out var url))
+            return false;
+        var domain = url.IdnHost.ToLowerInvariant();
+        return url.Scheme == Uri.UriSchemeHttps && url.UserInfo.Length == 0 &&
+            (domain == "mercadolivre.com.br" || domain.EndsWith(".mercadolivre.com.br", StringComparison.Ordinal));
+    }
+
+    private void OpenSelectedMlListing()
+    {
+        var selected = SelectedMlListing();
+        if (selected is null || !ValidMercadoLivreListing(selected))
+        {
+            MessageBox.Show("Selecione um anúncio válido na tabela.");
+            return;
+        }
+        Process.Start(new ProcessStartInfo { FileName = selected.Permalink, UseShellExecute = true });
+    }
+
+    private async Task ImportMlSelectedAsync()
+    {
+        if (_mlBusy) return;
+        var selected = SelectedMlListing();
+        if (selected is null || !ValidMercadoLivreListing(selected))
+        {
+            MessageBox.Show("Selecione um anúncio oficial válido para importar.");
+            return;
+        }
+        try
+        {
+            BeginMlOperation();
+            var existing = _repository.FindMercadoLivreItem(selected.Id);
+            var product = existing ?? new Product
+            {
+                Source = "Mercado Livre",
+                ExternalId = selected.Id,
+                Name = selected.Title,
+                Category = selected.CategoryId,
+                ListingUrl = selected.Permalink
+            };
+            if (existing is null)
+            {
+                _repository.SaveProduct(product);
+                _repository.AddLog(product.Id, "Mercado Livre", "Anúncio importado pela busca oficial. Link de afiliado pendente.");
+            }
+            var queueStatus = "";
+            if (_mlSyncQueue.Checked)
+            {
+                try
+                {
+                    await MercadoLivreBridgeService.IngestAsync(_mlRoot.Text, selected);
+                    _repository.AddLog(product.Id, "Fila Python", "Anúncio enviado ao garimpo.py para sincronizar fila e Excel.");
+                    queueStatus = " Fila Python sincronizada (verifique avisos do Excel).";
+                }
+                catch (Exception syncError)
+                {
+                    queueStatus = " Importado no SQLite, mas a fila Python falhou: " + syncError.Message;
+                }
+            }
+            _search.Clear();
+            ReloadProducts(product.Id);
+            _tabs.SelectedIndex = 0;
+            _footer.Text = (existing is null ? "Anúncio importado." : "Anúncio já cadastrado; dados preservados.") + queueStatus;
+            MessageBox.Show(_footer.Text, "Garimpo Mercado Livre");
+        }
+        catch (Exception ex) { _mlStatus.Text = ex.Message; ShowError(ex); }
+        finally { EndMlOperation(); }
+    }
+
     private TabPage BuildStudioTab()
     {
-        var page = Page("02 · Estúdio IA");
+        var page = Page("03 · Estúdio IA");
         var cols = TwoColumns(45);
         page.Controls.Add(cols);
         var left = Stack();
@@ -245,7 +496,7 @@ public sealed class MainForm : Form
 
     private TabPage BuildVersionsTab()
     {
-        var page = Page("03 · Versões");
+        var page = Page("04 · Versões");
         var cols = TwoColumns(45);
         page.Controls.Add(cols);
         var left = Stack();
@@ -283,7 +534,7 @@ public sealed class MainForm : Form
 
     private TabPage BuildPinTab()
     {
-        var page = Page("04 · Rascunho Pin");
+        var page = Page("05 · Rascunho Pin");
         var cols = TwoColumns(58);
         page.Controls.Add(cols);
         var left = Stack();
@@ -312,7 +563,7 @@ public sealed class MainForm : Form
 
     private TabPage BuildHistoryTab()
     {
-        var page = Page("05 · Histórico");
+        var page = Page("06 · Histórico");
         var container = Stack();
         container.Dock = DockStyle.Fill;
         container.Controls.Add(Section("REGISTRO DE ATIVIDADES DO PRODUTO"));
@@ -366,6 +617,7 @@ public sealed class MainForm : Form
         _niche.Text = p.Niche;
         _description.Text = p.Description;
         _affiliateUrl.Text = p.AffiliateUrl;
+        _listingUrl.Text = p.ListingUrl;
         _originalPath.Text = p.OriginalImagePath;
         FileStudioService.ShowImage(_originalPreview, p.OriginalImagePath);
         FileStudioService.ShowImage(_studioPreview, p.OriginalImagePath);
@@ -396,7 +648,7 @@ public sealed class MainForm : Form
     {
         _name.Clear(); _source.Text = p.Source; _externalId.Clear();
         _category.Clear(); _niche.Clear(); _description.Clear();
-        _affiliateUrl.Clear(); _originalPath.Clear();
+        _affiliateUrl.Clear(); _listingUrl.Clear(); _originalPath.Clear();
         FileStudioService.ShowImage(_originalPreview, null);
         FileStudioService.ShowImage(_studioPreview, null);
         _prompt.Clear();
