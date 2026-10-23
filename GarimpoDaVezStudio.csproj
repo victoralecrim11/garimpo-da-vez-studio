@@ -12,6 +12,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Content Include="prompts\pinterest-template.txt" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="integration\ml_bridge.py" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
