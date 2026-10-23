@@ -11,7 +11,7 @@ public static class ExcelExportService
         var sheet = workbook.Worksheets.Add("Produtos");
         var columns = new[] { "Produto", "Fonte", "ID externo (opcional)", "Categoria",
             "Nicho", "Descrição", "Link afiliado", "Imagem original", "Imagem aprovada",
-            "Status Pin", "Atualizado (UTC)" };
+            "Status Pin", "Atualizado (UTC)", "URL anúncio" };
         for (var i = 0; i < columns.Length; i++) sheet.Cell(1, i + 1).Value = columns[i];
         var row = 2;
         foreach (var product in repo.GetProducts())
@@ -21,7 +21,7 @@ public static class ExcelExportService
             var values = new[] { product.Name, product.Source, product.ExternalId,
                 product.Category, product.Niche, product.Description, product.AffiliateUrl,
                 product.OriginalImagePath, approved?.FilePath ?? "", draft?.Status ?? "Sem rascunho",
-                product.UpdatedAt };
+                product.UpdatedAt, product.ListingUrl };
             for (var i = 0; i < values.Length; i++)
                 sheet.Cell(row, i + 1).Value = values[i];
             row++;
