@@ -5,6 +5,7 @@ public sealed class Product
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Source { get; set; } = "Mercado Livre";
     public string ExternalId { get; set; } = "";
+    public string ListingUrl { get; set; } = "";
     public string Name { get; set; } = "";
     public string Category { get; set; } = "";
     public string Niche { get; set; } = "";
