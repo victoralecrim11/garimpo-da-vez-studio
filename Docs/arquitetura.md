@@ -1,84 +1,42 @@
-# Mapa de telas e arquitetura — Garimpo da Vez Studio — MVP
+# Arquitetura — Garimpo da Vez Studio
 
-## Navegação
-
-```mermaid
-flowchart LR
-  A[Lista de produtos] --> B[01 Produto]
-  B --> C[02 Estúdio IA]
-  C --> D[ChatGPT no Edge - envio manual]
-  D --> E[03 Importar versões]
-  E --> F{Imagem aprovada?}
-  F -- não --> D
-  F -- sim --> G[04 Rascunho Pin]
-  G --> H[Pinterest - publicação manual]
-  H --> I[Marcar status manualmente]
-  B --> J[05 Histórico]
-  E --> J
-  I --> J
-  J --> K[Exportar Excel XLSX]
-```
-
-## Estrutura de classes
+## Fluxo funcional
 
 ```mermaid
-classDiagram
-  class MainForm {
-    +BuildInterface()
-    +SaveCurrent()
-    +GeneratePrompt()
-    +ImportGenerated()
-    +SaveDraft()
-  }
-  class StudioRepository {
-    +GetProducts()
-    +SaveProduct()
-    +GetImages()
-    +SaveImage()
-    +ApproveImage()
-    +SavePin()
-    +AddLog()
-  }
-  class Product { +string Id; +string Name; +string AffiliateUrl }
-  class ImageVersion { +string ProductId; +int Version; +bool IsApproved }
-  class PinDraft { +string ProductId; +string Status }
-  class PromptService { +Build(Product,style,scene) string }
-  class FileStudioService { +CopyOriginal(); +CopyGenerated(); +ShowImage() }
-  class EdgeTabService { +ActivateExistingChatGptTabAsync() Task~bool~ }
-  class EdgeWindowService { +ActivateVisibleChatGptWindow() bool }
-  class ExcelExportService { +Export() }
-  MainForm --> StudioRepository
-  MainForm --> PromptService
-  MainForm --> FileStudioService
-  MainForm --> EdgeTabService
-  MainForm --> EdgeWindowService
-  MainForm --> ExcelExportService
-  StudioRepository --> Product
-  StudioRepository --> ImageVersion
-  StudioRepository --> PinDraft
+flowchart TD
+  UI[WinForms: guia Garimpo Mercado Livre] --> S[MercadoLivreBridgeService.cs]
+  S --> P[integration/ml_bridge.py: JSON stdout]
+  P --> D[garimpo-da-vez/automation/ml_discovery.py]
+  D --> A[API oficial Mercado Livre + OAuth local Python]
+  A --> D --> P --> S --> UI
+  UI --> I[Selecionar anúncio MLB]
+  I --> DB[SQLite Studio: Product + ListingUrl]
+  I --> Q{Sincronizar fila Python?}
+  Q -->|Sim| G[garimpo.py ingest-url]
+  G --> J[pins.json + tentativa sync produtos.xlsx]
+  Q -->|Não| E[Estúdio IA assistido]
+  DB --> E
+  E --> R[Rascunhos Pinterest: publicação manual]
 ```
 
-## SQLite
+## Interfaces e responsabilidades
 
-Tabelas: `products`, `image_versions`, `pin_drafts`, `studio_logs`.
-Chaves estrangeiras habilitadas com `PRAGMA foreign_keys=ON`, comandos parametrizados,
-versões únicas por produto, e no máximo uma versão aprovada por operação lógica.
-Arquivo do banco: `%LOCALAPPDATA%\GarimpoDaVezStudio\studio.sqlite`.
+- `Services/MercadoLivreBridgeService.cs`: valida pasta raiz do motor Python, seleciona venv quando existe, inicia subprocessos **sem shell**, define limite de 65 segundos, recebe JSON estruturado. Nunca imprime tokens. Configuração de caminho em arquivo local.
+- `integration/ml_bridge.py`: **não** implementa cliente alternativo da API. Importa `root_categories`, `children_of`, `search_listings` e `read_token` de `automation/ml_discovery.py`. Para sincronizar fila utiliza `garimpo.py ingest-url`, preservando validações e atualização automática do Excel quando permitido.
+- `UI/MainForm.cs`: carrega categorias/subcategorias, pesquisas e resultados; importa seleção com prevenção de duplicidade por `Source + ExternalId`. Mostra status e erros de acesso e oferece abertura do permalink oficial.
+- `Data/StudioRepository.cs`: SQLite privado com `listing_url` separado do `affiliate_url`. Em bancos antigos adiciona `listing_url` com `ALTER TABLE`, preservando registros existentes. IDs locais continuam UUID.
+- `ExcelExportService`: gera um arquivo XLSX próprio do Studio. **Não** compartilha automaticamente um mesmo arquivo aberto com o Python para evitar conflitos de gravação.
 
-## Integração planejada com garimpo.py (não implementada no MVP)
+## Restrições / invariantes
 
-Adicionar uma fronteira `IProductProvider`, com `SearchAsync(query, category, niche)` e
-`ImportAsync(selectedProduct)`. O adaptador Python deve produzir JSON com título,
-identificador externo, categoria, descrição e caminho de foto; **não presumir** que
-os parâmetros do CLI atual já atendem a esse contrato. Vincular produto à fonte
-por `Source` + `ExternalId` para evitar duplicados. Não gerar links de afiliado a
-partir de IDs simples sem mecanismo oficialmente disponibilizado.
+1. `MLB...` corresponde a um ID **de anúncio**; não confundir com ID de categoria ou produto de catálogo.
+2. Permalink comum não é link de afiliado. A importação deixa `AffiliateUrl` vazio, e não concede elegibilidade a comissão.
+3. Se API retornar 401/403, mostrar falha: sem scraping/contorno nem fallback fictício.
+4. A busca não altera a fila Python; somente a seleção com sincronização marcada solicita `ingest-url`. Uma falha posterior mantém o registro local e mostra alerta.
+5. Reimportação de `Source + ExternalId` não sobrepõe título, descrição, imagem, link de afiliado nem status já editados no Studio.
+6. Tokens OAuth e segredos são mantidos pelo módulo Python original, não copiados para SQLite, XLSX ou repositório.
+7. Edição de imagem com ChatGPT e postagem de Pin continuam assistidas/manuais.
 
-## Decisões de limites
+## Requisitos do sistema
 
-- Nenhuma API paga de imagens.
-- O aplicativo **não** automatiza o envio no ChatGPT, o download de respostas ou a publicação no Pinterest.
-- Apenas traz ao primeiro plano uma aba existente: via CDP se configurado ou via
-  título de janela do Edge se o ChatGPT estiver na guia ativa.
-- Os status de publicação são declarações manuais, sem validação remota.
-- Não há analytics de Pinterest, monetização nem descoberta automática de produtos neste MVP.
+Windows + .NET 10, Python 3.11+, duas pastas de repositório disponíveis. O executável precisa empacotar `integration/ml_bridge.py`, incluído como Content em `.csproj`. O Python original não é incluído e deve ser configurado no computador do usuário.
