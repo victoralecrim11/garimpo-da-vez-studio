@@ -1,0 +1,1 @@
+﻿# Garimpo da Vez Studio
