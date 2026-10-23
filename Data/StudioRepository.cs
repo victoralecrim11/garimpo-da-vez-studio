@@ -35,6 +35,7 @@ public sealed class StudioRepository
             CREATE TABLE IF NOT EXISTS products (
               id TEXT PRIMARY KEY, source TEXT NOT NULL DEFAULT 'Mercado Livre',
               external_id TEXT NOT NULL DEFAULT '', name TEXT NOT NULL,
+              listing_url TEXT NOT NULL DEFAULT '',
               category TEXT NOT NULL DEFAULT '', niche TEXT NOT NULL DEFAULT '',
               description TEXT NOT NULL DEFAULT '', affiliate_url TEXT NOT NULL DEFAULT '',
               original_image_path TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL,
@@ -65,6 +66,21 @@ public sealed class StudioRepository
             CREATE INDEX IF NOT EXISTS ix_logs_product ON studio_logs(product_id, occurred_at DESC);
             """;
         command.ExecuteNonQuery();
+        // Migração não destrutiva para bancos SQLite criados no MVP inicial.
+        using var columns = connection.CreateCommand();
+        columns.CommandText = "PRAGMA table_info(products)";
+        using var reader = columns.ExecuteReader();
+        var hasListingUrl = false;
+        while (reader.Read())
+            if (string.Equals(reader.GetString(1), "listing_url", StringComparison.OrdinalIgnoreCase))
+                hasListingUrl = true;
+        reader.Close();
+        if (!hasListingUrl)
+        {
+            using var alter = connection.CreateCommand();
+            alter.CommandText = "ALTER TABLE products ADD COLUMN listing_url TEXT NOT NULL DEFAULT ''";
+            alter.ExecuteNonQuery();
+        }
     }
 
     public List<Product> GetProducts()
@@ -74,7 +90,7 @@ public sealed class StudioRepository
         using var cmd = connection.CreateCommand();
         cmd.CommandText = """
             SELECT id,source,external_id,name,category,niche,description,affiliate_url,
-                   original_image_path,created_at,updated_at
+                   original_image_path,created_at,updated_at,listing_url
             FROM products ORDER BY updated_at DESC, name COLLATE NOCASE
             """;
         using var r = cmd.ExecuteReader();
@@ -85,10 +101,14 @@ public sealed class StudioRepository
                 Name = r.GetString(3), Category = r.GetString(4), Niche = r.GetString(5),
                 Description = r.GetString(6), AffiliateUrl = r.GetString(7),
                 OriginalImagePath = r.GetString(8), CreatedAt = r.GetString(9),
-                UpdatedAt = r.GetString(10)
+                UpdatedAt = r.GetString(10), ListingUrl = r.GetString(11)
             });
         return results;
     }
+
+    public Product? FindMercadoLivreItem(string itemId) => GetProducts()
+        .FirstOrDefault(x => x.Source == "Mercado Livre" &&
+            string.Equals(x.ExternalId, itemId, StringComparison.OrdinalIgnoreCase));
 
     public void SaveProduct(Product product)
     {
@@ -99,20 +119,21 @@ public sealed class StudioRepository
         using var cmd = connection.CreateCommand();
         cmd.CommandText = """
             INSERT INTO products(id,source,external_id,name,category,niche,description,affiliate_url,
-                                 original_image_path,created_at,updated_at)
-            VALUES($id,$source,$external,$name,$category,$niche,$description,$url,$image,$created,$updated)
+                                 original_image_path,created_at,updated_at,listing_url)
+            VALUES($id,$source,$external,$name,$category,$niche,$description,$url,$image,$created,$updated,$listing)
             ON CONFLICT(id) DO UPDATE SET
               source=excluded.source, external_id=excluded.external_id,
               name=excluded.name, category=excluded.category,niche=excluded.niche,
               description=excluded.description, affiliate_url=excluded.affiliate_url,
-              original_image_path=excluded.original_image_path, updated_at=excluded.updated_at
+              original_image_path=excluded.original_image_path, listing_url=excluded.listing_url,
+              updated_at=excluded.updated_at
             """;
         Add(cmd, "$id", product.Id); Add(cmd, "$source", product.Source);
         Add(cmd, "$external", product.ExternalId); Add(cmd, "$name", product.Name);
         Add(cmd, "$category", product.Category); Add(cmd, "$niche", product.Niche);
         Add(cmd, "$description", product.Description); Add(cmd, "$url", product.AffiliateUrl);
         Add(cmd, "$image", product.OriginalImagePath); Add(cmd, "$created", product.CreatedAt);
-        Add(cmd, "$updated", product.UpdatedAt);
+        Add(cmd, "$updated", product.UpdatedAt); Add(cmd, "$listing", product.ListingUrl);
         cmd.ExecuteNonQuery();
     }
 
