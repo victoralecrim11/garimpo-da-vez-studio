@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+<defs>
+<linearGradient id="bar" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#253e64"/><stop offset="1" stop-color="#141f32"/></linearGradient>
+<linearGradient id="wall" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e4ddcf"/><stop offset="1" stop-color="#b8ac9c"/></linearGradient>
+<linearGradient id="pot" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f5f1e7"/><stop offset="0.65" stop-color="#c0b2a4"/><stop offset="1" stop-color="#a9998c"/></linearGradient>
+<filter id="shadow"><feDropShadow dx="0" dy="12" stdDeviation="14" flood-opacity=".16"/></filter>
+<clipPath id="previewClip"><rect x="337" y="221" width="543" height="533" rx="18"/></clipPath>
+</defs>
+<rect width="1600" height="900" fill="#0d1522"/>
+
+<rect x="0" y="0" width="1600" height="96" rx="0" fill="#121d30"/>
+<text x="38" y="42" fill="#f5f8ff" font-size="28" font-weight="700" text-anchor="start" opacity="1" font-family="Segoe UI, Arial, sans-serif">AFFILIATE / STUDIO</text>
+<text x="39" y="73" fill="#a4b6cc" font-size="14" font-weight="400" text-anchor="start" opacity="1" font-family="Segoe UI, Arial, sans-serif">Afiliados  •  Imagens IA  •  Pinterest</text>
+<rect x="1335" y="24" width="225" height="46" rx="12" fill="#237ed3"/>
+<text x="1447" y="53" fill="white" font-size="17" font-weight="600" text-anchor="middle" opacity="1" font-family="Segoe UI, Arial, sans-serif">Exportar Excel (.xlsx)</text>
+<rect x="18" y="113" width="288" height="740" rx="16" fill="#182338"/>
+<text x="42" y="157" fill="#f5f8ff" font-size="19" font-weight="700" text-anchor="start" opacity="1" font-family="Segoe UI, Arial, sans-serif">PRODUTOS</text>
+<rect x="38" y="175" width="247" height="52" rx="10" fill="#26354d"/>
+<text x="55" y="208" fill="#9bafc8" font-size="16" font-weight="400" text-anchor="start" opacity="1" font-family="Segoe UI, Arial, sans-serif">⌕  Buscar produto...</text>
+<rect x="35" y="248" width="258" height="84" rx="12" fill="#273a58" stroke="#317dd0" stroke-width="1.6"/>
+<rect x="47" y="263" width="48" height="54" rx="8" fill="#726656"/>
+<text x="110" y="279" fill="#f4f7fc" font-size="15" font-weight="600" text-anchor="start" opacity="1" font-family="Segoe UI, Arial, sans-serif">Exemplo: vaso cerâmico</text>
+<text x="110" y="303" fill="#a6b9d2" font-size="13" font-weight="400" text-anchor="start" opacity="1" font-family="Segoe UI, Arial, sans-serif">Decoração • Em revisão</text>
+<rect x="35" y="339" width="258" height="74" rx="12" fill="#1f2d44"/>
+<text x="57" y="368" fill="#e3eaf4" font-size="16" font-weight="600" text-anchor="start" opacity="1" font-family="Segoe UI, Arial, sans-serif">Adicione seus produtos</text>
+<text x="57" y="389" fill="#9ab0c8" font-size="12" font-weight="400" text-anchor="start" opacity="1" font-family="Segoe UI, Arial, sans-serif">Sem dados fictícios no sistema</text>
+<rect x="37" y="770" width="117" height="49" rx="10" fill="#239ddd"/>
+<text x="95" y="801" fill="#ffffff" font-size="16" font-weight="600" text-anchor="middle" opacity="1" font-family="Segoe UI, Arial, sans-serif">+ Novo</text>
+<rect x="169" y="770" width="117" height="49" rx="10" fill="#2a3951"/>
+<text x="227" y="801" fill="#e5edf8" font-size="16" font-weight="600" text-anchor="middle" opacity="1" font-family="Segoe UI, Arial, sans-serif">Salvar</text>
+<rect x="326" y="113" width="1256" height="740" rx="16" fill="#172236"/>
+<text x="347" y="156" fill="#eff4fc" font-size="27" font-weight="700" text-anchor="start" opacity="1" font-family="Segoe UI, Arial, sans-serif">Estúdio de Imagens IA</text>
+<text x="348" y="185" fill="#9eb1cc" font-size="16" font-weight="400" text-anchor="start" opacity="1" font-family="Segoe UI, Arial, sans-serif">Prepare prompts, utilize o ChatGPT e mantenha versões aprovadas por produto.</text>
+<rect x="347" y="195" width="145" height="43" rx="10" fill="#202e44"/>
+<text x="419.5" y="222" fill="#abc0da" font-size="15" font-weight="600" text-anchor="middle" opacity="1" font-family="Segoe UI, Arial, sans-serif">01  Produto</text>
+<rect x="499" y="195" width="181" height="43" rx="10" fill="#2866a5"/>
+<text x="589.5" y="222" fill="#ffffff" font-size="15" font-weight="600" text-anchor="middle" opacity="1" font-family="Segoe UI, Arial, sans-serif">02  Estúdio IA</text>
+<rect x="687" y="195" width="147" height="43" rx="10" fill="#202e44"/>
+<text x="760.5" y="222" fill="#abc0da" font-size="15" font-weight="600" text-anchor="middle" opacity="1" font-family="Segoe UI, Arial, sans-serif">03  Versões</text>
+<rect x="841" y="195" width="190" height="43" rx="10" fill="#202e44"/>
+<text x="936.0" y="222" fill="#abc0da" font-size="15" font-weight="600" text-anchor="middle" opacity="1" font-family="Segoe UI, Arial, sans-serif">04  Rascunho Pin</text>
+<rect x="1038" y="195" width="160" height="43" rx="10" fill="#202e44"/>
+<text x="1118.0" y="222" fill="#abc0da" font-size="15" font-weight="600" text-anchor="middle" opacity="1" font-family="Segoe UI, Arial, sans-serif">05  Histórico</text>
+<rect x="337" y="254" width="552" height="528" rx="20" fill="#25344e"/>
+<text x="354" y="289" fill="#d5e2f4" font-size="17" font-weight="700" text-anchor="start" opacity="1" font-family="Segoe UI, Arial, sans-serif">IMAGEM DE REFERÊNCIA</text>
+<rect x="352" y="309" width="522" height="418" rx="14" fill="url(#wall)"/>
+<rect x="352" y="622" width="522" height="105" rx="0" fill="#b6a99a"/>
+<rect x="390" y="610" width="445" height="26" rx="8" fill="#d6c4aa"/>
+<rect x="405" y="629" width="414" height="10" rx="5" fill="#7c6d5e"/>
+<ellipse cx="612" cy="630" rx="120" ry="23" fill="#63584f" opacity=".25"/>
+<path d="M555 430 C551 457 543 478 532 513 C509 587 530 614 612 616 C696 612 715 579 688 509 C670 465 660 450 656 430Z" fill="url(#pot)" filter="url(#shadow)"/>
+<ellipse cx="606" cy="430" rx="51" ry="12" fill="#ac9988"/>
+<ellipse cx="606" cy="427" rx="42" ry="6" fill="#564c45"/>
+<path d="M608 428 Q604 355 559 301 M608 428 Q618 342 661 313 M608 426 Q583 355 534 350" stroke="#53674a" stroke-width="9" fill="none" stroke-linecap="round"/>
+<path d="M550 330 Q504 277 489 323 Q504 366 550 330Z M641 335 Q682 273 710 301 Q700 355 641 335Z M563 383 Q520 343 489 376 Q520 423 563 383Z" fill="#728965"/>
+<text x="365" y="761" fill="#9eb1cc" font-size="15" font-weight="400" text-anchor="start" opacity="1" font-family="Segoe UI, Arial, sans-serif">Imagem original vinculada ao produto selecionado</text>
+<rect x="919" y="253" width="638" height="529" rx="18" fill="#1d2b43"/>
+<text x="945" y="292" fill="#f0f5fc" font-size="18" font-weight="700" text-anchor="start" opacity="1" font-family="Segoe UI, Arial, sans-serif">CONFIGURAÇÃO DO PROMPT</text>
+<text x="945" y="333" fill="#afc0d6" font-size="15" font-weight="400" text-anchor="start" opacity="1" font-family="Segoe UI, Arial, sans-serif">Estilo visual</text>
+<rect x="941" y="344" width="286" height="56" rx="9" fill="#283a56"/>
+<text x="959" y="380" fill="#f1f6fc" font-size="16" font-weight="400" text-anchor="start" opacity="1" font-family="Segoe UI, Arial, sans-serif">Minimalista e sofisticado  ▾</text>
+<text x="1245" y="333" fill="#afc0d6" font-size="15" font-weight="400" text-anchor="start" opacity="1" font-family="Segoe UI, Arial, sans-serif">Cenário</text>
+<rect x="1241" y="344" width="286" height="56" rx="9" fill="#283a56"/>
+<text x="1259" y="380" fill="#f1f6fc" font-size="16" font-weight="400" text-anchor="start" opacity="1" font-family="Segoe UI, Arial, sans-serif">Ambiente decorado  ▾</text>
+<rect x="941" y="420" width="586" height="253" rx="12" fill="#111d31"/>
+<text x="960" y="451" fill="#e9f2ff" font-size="15" font-weight="600" text-anchor="start" opacity="1" font-family="Segoe UI, Arial, sans-serif">Crie uma imagem de inspiração para Pinterest</text>
+<text x="960" y="485" fill="#becde1" font-size="15" font-weight="400" text-anchor="start" opacity="1" font-family="Segoe UI, Arial, sans-serif">usando o produto da fotografia anexada.</text>
+<text x="960" y="527" fill="#becde1" font-size="15" font-weight="400" text-anchor="start" opacity="1" font-family="Segoe UI, Arial, sans-serif">Preserve cores, formato, materiais e detalhes reais.</text>
+<text x="960" y="560" fill="#becde1" font-size="15" font-weight="400" text-anchor="start" opacity="1" font-family="Segoe UI, Arial, sans-serif">Gere uma composição editorial natural e realista.</text>
+<text x="960" y="593" fill="#becde1" font-size="15" font-weight="400" text-anchor="start" opacity="1" font-family="Segoe UI, Arial, sans-serif">Formato: imagem vertical 2:3, sem textos comerciais.</text>
+<text x="960" y="638" fill="#7897ba" font-size="15" font-weight="400" text-anchor="start" opacity="1" font-family="Segoe UI, Arial, sans-serif">[...] Prompt completo e personalizável</text>
+<rect x="944" y="696" width="172" height="55" rx="11" fill="#257dce"/>
+<text x="1030" y="731" fill="#ffffff" font-size="17" font-weight="600" text-anchor="middle" opacity="1" font-family="Segoe UI, Arial, sans-serif">Gerar prompt</text>
+<rect x="1129" y="696" width="140" height="55" rx="11" fill="#283b58"/>
+<text x="1199" y="731" fill="#e5effd" font-size="17" font-weight="600" text-anchor="middle" opacity="1" font-family="Segoe UI, Arial, sans-serif">Copiar</text>
+<rect x="1284" y="696" width="238" height="55" rx="11" fill="#204975"/>
+<text x="1403" y="731" fill="#e7f3ff" font-size="16" font-weight="600" text-anchor="middle" opacity="1" font-family="Segoe UI, Arial, sans-serif">Ativar aba ChatGPT</text>
+<rect x="0" y="871" width="1600" height="29" rx="0" fill="#101a2a"/>
+<text x="20" y="891" fill="#8198b5" font-size="13" font-weight="400" text-anchor="start" opacity="1" font-family="Segoe UI, Arial, sans-serif">WIREFRAME CONCEITUAL • Exemplo visual, não captura de tela de execução</text>
+</svg>
