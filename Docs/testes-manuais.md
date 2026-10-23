@@ -21,3 +21,20 @@ Execute depois de `dotnet restore` e `dotnet build` com o SDK .NET 10 instalado.
 
 **Não validado nesta entrega:** build real .NET no Windows, integração CLI do `garimpo.py`,
 endpoints de marketplace, API do Pinterest e automação da interface do ChatGPT.
+
+
+## Integração Mercado Livre / Python
+
+- [ ] Selecione a raiz real `garimpo-da-vez`; selecione outra pasta e verifique validação.
+- [ ] Com Python e OAuth autorizados, carregue categorias da API/cache oficial; verifique procedência.
+- [ ] Selecione uma categoria raiz e carregue subcategorias; filtre a busca e confira o `MLB...` e permalink oficial.
+- [ ] Pesquise um termo inexistente e confirme lista vazia (sem dados fictícios).
+- [ ] Provoque erro HTTP 401/403 (permissão ausente); verifique mensagem e ausência de fallback.
+- [ ] Importe anúncio e confira o `listing_url` no SQLite, sem preencher `affiliate_url`.
+- [ ] Importe o mesmo MLB novamente; confira que não há duplicata e campos já editados são preservados.
+- [ ] Marque sincronização Python e verifique entrada na fila `pins.json` e planilha `produtos.xlsx` (ou alerta de falha).
+- [ ] Desmarque sincronização Python; verifique que apenas o SQLite Studio muda.
+- [ ] Se o `ingest-url` falhar, confirme que o Studio mantém produto importado e relata erro parcial.
+- [ ] Execute com banco SQLite anterior à atualização; verifique migração não destrutiva de `listing_url`.
+- [ ] Verifique que a exportação Excel Studio traz coluna URL anúncio independente do link afiliado.
+- [ ] Teste com URL inválida/ID ML incorreto e confirme recusa.
