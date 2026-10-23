@@ -1,0 +1,21 @@
+Tipo: Descrever uma alteração específica em português
+
+Alterações:
+- Informar quais funcionalidades, arquivos ou regras foram modificados.
+
+Motivação:
+- Explicar a necessidade e o problema resolvido.
+
+Validação:
+- Descrever testes executados e respectivos resultados, ou motivo de não executar.
+
+Impactos:
+- Informar mudanças de configuração, compatibilidade ou riscos, se houver.
+
+# Apague as frases-modelo acima e escreva os fatos reais deste commit.
+# Tipos: Funcionalidade, Correção, Documentação, Testes, Refatoração,
+#        Manutenção, Integração, Interface, Segurança, Desempenho,
+#        Infraestrutura, Reversão.
+# Título em português (preferencialmente até 72 caracteres), seguido de
+# linha em branco e seções Alterações, Motivação e Validação.
+# Consulte CONTRIBUTING.md.
