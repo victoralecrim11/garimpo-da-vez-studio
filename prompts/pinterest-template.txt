@@ -1,0 +1,29 @@
+Crie uma imagem editorial vertical de inspiração para Pinterest a partir da FOTO ANEXADA.
+
+PRODUTO: {{NOME}}
+DESCRIÇÃO: {{DESCRICAO}}
+CATEGORIA: {{CATEGORIA}}
+NICHO: {{NICHO}}
+ESTILO: {{ESTILO}}
+CENÁRIO: {{CENARIO}}
+
+OBJETIVO
+Apresente o produto da fotografia como protagonista de uma composição realista,
+que ajude o espectador a imaginar uma utilização adequada no cotidiano.
+
+REGRAS DE FIDELIDADE
+- Preserve o modelo original, proporções, cores, materiais, textos e marcas já existentes.
+- Não altere rótulos, invente especificações ou inclua objetos que pareçam vir na compra.
+- Se a referência não permitir verificar um detalhe essencial, solicite esclarecimento.
+
+FOTOGRAFIA
+- Cenário coerente com o produto e com o estilo especificado acima.
+- Iluminação suave, sombras de contato, materiais naturais e perspectiva convincente.
+- Produto em primeiro plano, bem iluminado, inteiramente reconhecível.
+- Estética inspiracional de revista; evite visual de panfleto ou propaganda agressiva.
+
+SAÍDA
+Uma única imagem na proporção 2:3, preferencialmente 1000 x 1500 pixels ou mais.
+Sem preços, chamadas comerciais, banners ou marcas-d'água acrescentadas.
+
+Gere a imagem diretamente, preservando a identidade visual do produto real.

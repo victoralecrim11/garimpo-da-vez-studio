@@ -1,0 +1,22 @@
+bin/
+obj/
+.vs/
+*.user
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.xlsx
+
+# Segredos, dados e perfis de navegador
+.env
+.env.*
+!.env.example
+*.pfx
+*.pem
+*.key
+*.log
+.vscode/
+.idea/
+EdgeDebugProfile/
+appsettings.Development.json
+.DS_Store
