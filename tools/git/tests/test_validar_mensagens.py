@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 import unittest
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "tools" / "git"))
 from validar_mensagens import validar  # noqa: E402
 
