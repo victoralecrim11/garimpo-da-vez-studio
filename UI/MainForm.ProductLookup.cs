@@ -186,6 +186,52 @@ public sealed partial class MainForm
             ? "Título preenchido a partir do catálogo. Falta escolher um anúncio real e gerar o link de afiliado."
             : "Nome, ID e URL preenchidos. Confira categoria, descrição e fotografia antes de salvar.";
         _ = ShowProductSuggestionPreviewAsync(suggestion.Thumbnail);
+        if (suggestion.Kind == "listing")
+            _ = SelectOfficialCategoryAsync(suggestion.CategoryId, _current?.Id ?? "");
+    }
+
+    private async Task SelectOfficialCategoryAsync(string categoryId, string productId)
+    {
+        if (string.IsNullOrWhiteSpace(categoryId)) return;
+        var root = MercadoLivreBridgeService.SavedRepository;
+        if (!MercadoLivreBridgeService.ValidRepository(root)) return;
+        try
+        {
+            var result = await MercadoLivreBridgeService.CategoryPathAsync(root, categoryId);
+            if (_current?.Id != productId || result.Categories.Count == 0) return;
+            var first = result.Categories[0];
+            var last = result.Categories[^1];
+            _suspendProductCategoryEvents = true;
+            try
+            {
+                var category = _productCategory.Items.Cast<MercadoLivreCategory>()
+                    .FirstOrDefault(x => x.Id == first.Id);
+                if (category is null)
+                {
+                    category = first;
+                    _productCategory.Items.Add(category);
+                }
+                _productCategory.SelectedItem = category;
+                _productSubcategory.Items.Clear();
+                _productSubcategory.Items.Add(new MercadoLivreCategory { Name = "Sem subcategoria" });
+                if (last.Id != first.Id)
+                {
+                    _productSubcategory.Items.Add(last);
+                    _productSubcategory.SelectedIndex = 1;
+                }
+                else _productSubcategory.SelectedIndex = 0;
+                _category.Text = last.Name;
+                _current.CategoryId = first.Id;
+                _current.SubcategoryId = last.Id != first.Id ? last.Id : "";
+                FillNicheSuggestions(_nicheOptions.Text);
+                _productNameStatus.Text += " Categoria oficial identificada: " + last.Name + ".";
+            }
+            finally { _suspendProductCategoryEvents = false; }
+        }
+        catch (Exception)
+        {
+            // Se a categoria estiver restrita, é possível escolher manualmente no formulário.
+        }
     }
 
     private async Task PreviewProductUrlAsync()
@@ -247,6 +293,7 @@ public sealed partial class MainForm
         _remoteNameSuggestions.Clear();
         _productNameSuggestions.Visible = false;
         _ = ShowProductSuggestionPreviewAsync(suggestion.Thumbnail);
+        _ = SelectOfficialCategoryAsync(suggestion.CategoryId, _current?.Id ?? "");
     }
 
     private async Task ShowProductSuggestionPreviewAsync(string urlString)
