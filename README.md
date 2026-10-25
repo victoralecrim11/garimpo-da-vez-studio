@@ -55,6 +55,28 @@ No app:
 
 A configuração do caminho da pasta Python é salva em `%LOCALAPPDATA%\GarimpoDaVezStudio\python-repository.txt` (somente o caminho, **nunca tokens**).
 
+### Campos do produto: validação por tipo
+
+- **Nome, fonte, nicho, título, pasta e descrição:** texto livre com limites de caracteres apropriados (o nome pode conter números de modelo).
+- **ID externo/SKU:** campo *alfanumérico*, pois IDs oficiais de anúncios usam o prefixo `MLB` com números e SKUs podem conter hífens. Não use apenas um controle numérico.
+- **URL do anúncio original:** campo **editável**, salvo no SQLite junto com o produto. Para produtos do Mercado Livre, aceita somente HTTPS dos domínios oficiais `mercadolivre.com.br` / `mercadolibre.com.br`. **Não cole `meli.la` neste campo**, pois isso pode ser link comissionado.
+- **Link de afiliado:** campo separado, aceita somente links HTTPS dos domínios oficiais do Mercado Livre e `meli.la` quando a fonte for Mercado Livre. Formato e domínio não comprovam comissão, anúncio correto ou elegibilidade; confirme no portal.
+- **App ID do OAuth:** somente 5 a 30 dígitos. Não é o Client Secret e não permite obter tokens sozinho.
+- Todos os campos são validados novamente ao clicar **Salvar produto**. Valores já armazenados no SQLite antes da atualização não são apagados ou reescritos automaticamente.
+
+### Login OAuth no WinForms (reutiliza Python)
+
+1. Na guia **02 · Garimpo Mercado Livre**, selecione a pasta local do repositório Python `garimpo-da-vez`.
+2. Clique **Verificar sessão OAuth**. O Studio pede ao Python apenas os indicadores de sessão existente e token dentro do prazo; **não recebe nem guarda tokens**.
+3. Se não houver sessão, informe o **App ID numérico** da aplicação do Mercado Livre e clique **Iniciar login OAuth**. O botão inicia o comando `automation/ml_oauth.py login` em um terminal PowerShell visível e com interação humana. O Client Secret é solicitado de forma oculta pelo Python se não estiver disponível no ambiente.
+4. Autorize a aplicação no navegador. O endereço de início esperado é `https://auth.mercadolivre.com.br/authorization`. Cadastre exatamente no DevCenter a URI de callback `https://victoralecrim11.github.io/garimpo-da-vez/oauth/callback/`.
+5. O callback hospedado no GitHub Pages encaminha o código temporário e o `state` para `http://127.0.0.1:8765/callback`, atendido **somente pelo processo Python de login ativo**. Não feche o terminal antes da confirmação.
+6. De volta ao WinForms, clique **Verificar sessão OAuth**. Mesmo com login válido, o endpoint de busca pode retornar **HTTP 403** por falta de permissão; o login não resolve sozinho uma restrição de API.
+
+O Login usa **Authorization Code + PKCE S256, proteção `state`, troca de token e keyring** já presentes no projeto Python. O Studio não cria outro redirect nem tenta interceptar códigos do navegador. Tokens e Client Secret permanecem no cofre do sistema operacional administrado pelo Python. O Studio guarda localmente somente o App ID público para preencher o campo na próxima execução.
+
+**Segurança:** nunca envie a URL final do callback com `code`, nem o Client Secret, access token ou refresh token em chats, capturas, issues ou repositórios. O encaminhamento pelo GitHub Pages foi projetado no repositório Python para uso pessoal; multiusuário requer backend HTTPS dedicado e controles adicionais.
+
 ### Limites importantes
 
 - A API de consulta **não** gera links de comissão; as funções do Mercado Livre para catálogo/produtos são distintas dos anúncios e da Central de Afiliados. Confira o link individual e a elegibilidade na Central.
