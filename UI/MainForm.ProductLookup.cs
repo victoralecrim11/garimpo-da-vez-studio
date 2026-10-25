@@ -9,6 +9,8 @@ public sealed partial class MainForm
     private readonly System.Windows.Forms.Timer _productNameTimer = new() { Interval = 850 };
     private readonly ListBox _productNameSuggestions = new();
     private readonly Label _productNameStatus = new();
+    private readonly LinkLabel _fullProductTitleLink = new();
+    private string _lastOfficialFullTitle = "";
     private readonly List<ProductNameSuggestion> _remoteNameSuggestions = new();
     private bool _suppressProductNameLookup;
     private bool _productNameRequestRunning;
@@ -39,6 +41,18 @@ public sealed partial class MainForm
         form.Controls.Add(buttons);
         form.Controls.Add(_productNameSuggestions);
         form.Controls.Add(_productNameStatus);
+        _fullProductTitleLink.Text = "Ver título original recebido na pesquisa";
+        _fullProductTitleLink.LinkColor = Accent;
+        _fullProductTitleLink.Width = 450;
+        _fullProductTitleLink.Height = 24;
+        _fullProductTitleLink.Visible = false;
+        _fullProductTitleLink.LinkClicked += (_, _) =>
+        {
+            if (!string.IsNullOrWhiteSpace(_lastOfficialFullTitle))
+                MessageBox.Show(_lastOfficialFullTitle, "Título oficial original",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+        };
+        form.Controls.Add(_fullProductTitleLink);
 
         _name.TextChanged += (_, _) =>
         {
@@ -175,8 +189,10 @@ public sealed partial class MainForm
 
         NewProduct(); // Nunca mistura link de afiliado/imagem de produtos diferentes.
         _suppressProductNameLookup = true;
-        _name.Text = suggestion.Name.Length > 180 ? suggestion.Name[..180] : suggestion.Name;
+        _name.Text = suggestion.SuggestedName.Length > _name.MaxLength
+            ? suggestion.SuggestedName[.._name.MaxLength] : suggestion.SuggestedName;
         _suppressProductNameLookup = false;
+        ShowOriginalProductTitle(suggestion);
         _source.Text = "Mercado Livre";
         _pinTitle.Text = _name.Text.Length > 100 ? _name.Text[..100] : _name.Text;
         if (suggestion.Kind == "listing")
@@ -197,6 +213,14 @@ public sealed partial class MainForm
         _ = EnrichSelectedProductAsync(suggestion, _current?.Id ?? "");
     }
 
+    private void ShowOriginalProductTitle(ProductNameSuggestion suggestion)
+    {
+        var shortened = (suggestion.Kind is "catalog" or "listing") &&
+            ProductTitleFormatter.WasShortened(suggestion.Name);
+        _lastOfficialFullTitle = shortened ? suggestion.Name : "";
+        _fullProductTitleLink.Visible = shortened;
+    }
+
     private async Task EnrichSelectedProductAsync(ProductNameSuggestion suggestion, string productId)
     {
         var root = MercadoLivreBridgeService.SavedRepository;
@@ -210,7 +234,7 @@ public sealed partial class MainForm
             var response = await MercadoLivreBridgeService.EnrichSuggestionAsync(root, suggestion);
             // Resultados antigos nunca alteram outro produto ou o nome que já foi editado.
             if (_current?.Id != productId ||
-                _name.Text != (suggestion.Name.Length > 180 ? suggestion.Name[..180] : suggestion.Name))
+                _name.Text != suggestion.SuggestedName)
                 return;
             var details = response.Suggestions.FirstOrDefault();
             if (details is null) return;
@@ -241,6 +265,8 @@ public sealed partial class MainForm
                 : " Descrição textual não disponível ou já preenchida.";
             if (suggestion.Kind == "catalog")
                 _productNameStatus.Text += " A referência de catálogo não é anúncio com link de afiliado.";
+            if (_fullProductTitleLink.Visible)
+                _productNameStatus.Text += " Nome resumido: confira o original antes de salvar.";
             if (!string.IsNullOrWhiteSpace(response.Warning))
                 _footer.Text = response.Warning;
         }
@@ -353,8 +379,10 @@ public sealed partial class MainForm
         if (saved is not null) LoadProduct(saved);
         else NewProduct();
         _suppressProductNameLookup = true;
-        _name.Text = suggestion.Name.Length > 180 ? suggestion.Name[..180] : suggestion.Name;
+        _name.Text = suggestion.SuggestedName.Length > _name.MaxLength
+            ? suggestion.SuggestedName[.._name.MaxLength] : suggestion.SuggestedName;
         _suppressProductNameLookup = false;
+        ShowOriginalProductTitle(suggestion);
         _source.Text = "Mercado Livre";
         _listingUrl.Text = originalUrl;
         if (!string.IsNullOrWhiteSpace(suggestion.Id)) _externalId.Text = suggestion.Id;

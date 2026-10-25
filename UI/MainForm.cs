@@ -979,6 +979,8 @@ public sealed partial class MainForm : Form
         _productNameRevision++;
         _remoteNameSuggestions.Clear();
         _productNameSuggestions.Visible = false;
+        _lastOfficialFullTitle = "";
+        _fullProductTitleLink.Visible = false;
         _source.Text = p.Source;
         _externalId.Text = p.ExternalId;
         _category.Text = p.Category;
@@ -1022,6 +1024,8 @@ public sealed partial class MainForm : Form
         _productNameRevision++;
         _remoteNameSuggestions.Clear();
         _productNameSuggestions.Visible = false;
+        _lastOfficialFullTitle = "";
+        _fullProductTitleLink.Visible = false;
         _source.Text = p.Source; _externalId.Clear();
         _category.Clear();
         _suspendProductCategoryEvents = true;

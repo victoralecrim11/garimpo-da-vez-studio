@@ -97,3 +97,14 @@ endpoints de marketplace, API do Pinterest e automação da interface do ChatGPT
 - [ ] Escolher outro produto enquanto aguarda resposta e confirmar que a categoria e a descrição antigas não são aplicadas.
 - [ ] Salvar categoria raiz e folha no SQLite, fechar e reabrir o programa sem carregar a API: os IDs salvos devem continuar selecionáveis.
 - [ ] Confirmar manualmente qualquer categoria sugerida pelo preditor e revisar os dados antes de publicar.
+
+## Título resumido do produto (2026-10)
+
+- [ ] Pesquisar `Lumi` e selecionar um catálogo cujo nome oficial contenha várias expressões separadas por vírgulas: o campo deve receber uma sugestão curta, não a lista inteira de palavras-chave.
+- [ ] Conferir o botão **Ver título original recebido na pesquisa** e revisar o título oficial antes de salvar.
+- [ ] Verificar que o título inicial do Pin usa o mesmo nome curto e continua editável.
+- [ ] Selecionar um título normal com características relevantes e verificar que ele não é indevidamente resumido.
+- [ ] Selecionar um cadastro já salvo e verificar que o nome antigo não é alterado automaticamente.
+- [ ] Selecionar uma URL oficial e repetir o teste de nome curto e de enriquecimento de categoria/descrição.
+- [ ] Digitar manualmente outro nome durante a consulta e confirmar que a resposta assíncrona não modifica o novo cadastro.
+- [ ] Alterar o nome proposto quando o trecho resumido omitir modelo ou característica essencial; a confirmação final continua humana.

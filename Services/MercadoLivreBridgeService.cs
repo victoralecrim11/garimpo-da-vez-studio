@@ -42,11 +42,15 @@ public sealed class ProductNameSuggestion
     public string LocalProductId { get; set; } = "";
 
     [JsonIgnore]
+    public string SuggestedName => Kind is "catalog" or "listing"
+        ? ProductTitleFormatter.Suggest(Name) : Name;
+
+    [JsonIgnore]
     public string Display => Kind switch
     {
         "local" => "Meu cadastro · " + Name,
-        "listing" => "Anúncio · " + Name,
-        "catalog" => "Referência de catálogo · " + Name,
+        "listing" => "Anúncio · " + SuggestedName,
+        "catalog" => "Referência de catálogo · " + SuggestedName,
         _ => Name
     };
 
