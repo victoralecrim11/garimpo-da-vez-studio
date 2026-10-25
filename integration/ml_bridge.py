@@ -96,7 +96,7 @@ def official_preview(url: str, token: str) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", required=True)
-    parser.add_argument("--action", choices=["categories", "children", "search", "ingest", "manual", "oauth_status", "suggest", "preview_url"], required=True)
+    parser.add_argument("--action", choices=["categories", "children", "search", "ingest", "manual", "oauth_status", "suggest", "preview_url", "category_path"], required=True)
     parser.add_argument("--category", default="")
     parser.add_argument("--query", default="")
     parser.add_argument("--url", default="")
@@ -123,6 +123,21 @@ def main() -> int:
     )
 
     token = read_token()
+    if args.action == "category_path":
+        from automation.ml_discovery import _api_get
+        if not re.fullmatch(r"MLB[0-9]{2,12}", args.category):
+            raise ValueError("Identificador oficial de categoria inválido.")
+        obj = _api_get("/categories/" + args.category, token=token)
+        if not isinstance(obj, dict):
+            raise ValueError("A API não retornou detalhes da categoria.")
+        path = obj.get("path_from_root") or []
+        categories = [
+            {"id": row["id"], "name": row["name"]}
+            for row in path if isinstance(row, dict)
+            and re.fullmatch(r"MLB[0-9]{2,12}", str(row.get("id") or ""))
+            and isinstance(row.get("name"), str) and row["name"].strip()
+        ]
+        return emit({"ok": True, "origin": "api", "categories": categories})
     if args.action == "suggest":
         return emit(official_suggestions(args.query.strip(), token, args.category))
     if args.action == "preview_url":
