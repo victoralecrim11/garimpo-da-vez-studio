@@ -30,11 +30,26 @@ def root_categories(*, token):
 def children_of(category_id, *, token):
     return [{"id":"MLB456","name":"Decoração"}], {"id":category_id}
 
+class DiscoveryError(ValueError):
+    pass
+
+def _api_get(path, params, token):
+    assert path == "/products/search"
+    if params["q"] == "ambos403":
+        raise DiscoveryError("HTTP 403")
+    return {"results": [{
+        "id":"MLBU300001", "name":"Produto de referência catalogado",
+        "pictures":[{"secure_url":"https://http2.mlstatic.com/catalog.jpg"}]
+    }]}
+
 def search_listings(query, *, category_id, limit, token):
     if query == "erro403":
         raise ValueError("HTTP 403")
+    if query in ("busca403", "ambos403"):
+        raise DiscoveryError("Busca oficial bloqueada (HTTP 403)")
     return [{"id":"MLB123456789","title":"Produto de teste",
              "category_id":"MLB123","permalink":"https://www.mercadolivre.com.br/item/MLB123456789",
+             "thumbnail":"https://http2.mlstatic.com/miniatura.jpg",
              "price":123.45,"currency":"BRL"}]
 """.strip(), encoding="utf-8"
         )
@@ -46,6 +61,13 @@ def validate_url(url, *, image=False):
         raise ValueError("URL inválida")
 def extract_item_id(url):
     return url.rsplit("/", 1)[-1]
+def get_product_metadata(url, *, token=None):
+    validate_url(url)
+    return {"title":"Produto extraído da URL", "item_id":"MLB123456789",
+            "summary":"Descrição de origem pública, revisão necessária.",
+            "source_url":url, "resolved_url":url,
+            "ml_category_id":"MLB123", "image_url":"https://http2.mlstatic.com/fixture.jpg",
+            "metadata_verified":False, "metadata_source":"public_page_unverified"}
 """.strip(), encoding="utf-8"
         )
         (automation / "ml_oauth.py").write_text(
@@ -112,6 +134,43 @@ if __name__ == "__main__":
         self.assertEqual(code, 0)
         self.assertFalse(obj["authenticated"])
         self.assertFalse(obj["token_valid"])
+
+    def test_suggest_real_listing_preserves_url_and_image(self):
+        code, obj = self.run_bridge("suggest", "--query", "varal", "--category", "")
+        self.assertEqual(code, 0)
+        self.assertEqual(obj["origin"], "anuncios_oficiais")
+        self.assertEqual(obj["suggestions"][0]["kind"], "listing")
+        self.assertEqual(obj["suggestions"][0]["id"], "MLB123456789")
+        self.assertTrue(obj["suggestions"][0]["permalink"].startswith("https://www.mercadolivre"))
+        self.assertIn("mlstatic.com", obj["suggestions"][0]["thumbnail"])
+
+    def test_catalog_suggestions_do_not_claim_to_be_listings(self):
+        code, obj = self.run_bridge("suggest", "--query", "busca403", "--category", "")
+        self.assertEqual(code, 0)
+        self.assertEqual(obj["origin"], "catalogo_referencia")
+        self.assertEqual(obj["suggestions"][0]["kind"], "catalog")
+        self.assertEqual(obj["suggestions"][0]["id"], "MLBU300001")
+        self.assertEqual(obj["suggestions"][0]["permalink"], "")
+        self.assertIn("não anúncios", obj["warning"])
+
+    def test_denied_search_and_catalog_returns_empty_not_invented(self):
+        code, obj = self.run_bridge("suggest", "--query", "ambos403", "--category", "")
+        self.assertEqual(code, 0)
+        self.assertEqual(obj["origin"], "indisponivel")
+        self.assertEqual(obj["suggestions"], [])
+
+    def test_preview_by_url_does_not_write_to_python_queue(self):
+        url = "https://www.mercadolivre.com.br/item/MLB123456789"
+        code, obj = self.run_bridge("preview_url", "--url", url)
+        self.assertEqual(code, 0)
+        self.assertEqual(obj["suggestions"][0]["name"], "Produto extraído da URL")
+        self.assertFalse(obj["suggestions"][0]["verified"])
+        self.assertFalse((self.root / "automation" / "imported.txt").exists())
+
+    def test_preview_url_denies_foreign_host(self):
+        code, obj = self.run_bridge("preview_url", "--url", "https://example.com/MLB123456789")
+        self.assertNotEqual(code, 0)
+        self.assertFalse(obj["ok"])
 
     def test_categories_and_children(self):
         code, obj = self.run_bridge("categories")
