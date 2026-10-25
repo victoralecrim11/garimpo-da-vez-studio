@@ -41,6 +41,8 @@ public sealed class MainForm : Form
     private readonly DataGridView _mlResults = new();
     private readonly PictureBox _mlPreview = Picture();
     private readonly TextBox _mlManualUrl = TextInput();
+    private readonly TextBox _oauthAppId = TextInput();
+    private readonly Label _oauthStatus = new();
     private int _mlPreviewGeneration;
     private static readonly HttpClient ThumbnailClient = new(new HttpClientHandler { AllowAutoRedirect = false })
     {
@@ -84,6 +86,7 @@ public sealed class MainForm : Form
         BackColor = Background;
         ForeColor = Foreground;
         Font = new Font("Segoe UI", 10f);
+        ConfigureInputTypes();
         BuildInterface();
         ReloadProducts();
     }
@@ -207,8 +210,7 @@ public sealed class MainForm : Form
         form.Controls.Add(Field("Nicho editorial (sugestões editáveis)", _nicheOptions));
         form.Controls.Add(Field("Descrição real do produto", _description, 132));
         form.Controls.Add(Field("Link oficial do afiliado", _affiliateUrl));
-        _listingUrl.ReadOnly = true;
-        form.Controls.Add(Field("URL do anúncio original (não comissionada)", _listingUrl));
+        form.Controls.Add(Field("URL do anúncio original (HTTPS, editável)", _listingUrl));
         var buttons = ButtonRow(468);
         buttons.Controls.Add(ButtonOf("Salvar produto", () => SaveCurrent(), true));
         buttons.Controls.Add(ButtonOf("Selecionar foto", ImportOriginal));
@@ -241,6 +243,17 @@ public sealed class MainForm : Form
         setup.Controls.Add(ButtonOf("Selecionar pasta Python", ChoosePythonRoot, false, 205));
         setup.Controls.Add(ButtonOf("Carregar categorias", async () => await LoadMlCategoriesAsync(), true, 205));
         panel.Controls.Add(setup);
+        _oauthAppId.Text = MercadoLivreOAuthService.SavedAppId();
+        panel.Controls.Add(Field("OAuth Mercado Livre · App ID (somente números)", _oauthAppId));
+        var authentication = ButtonRow(810);
+        authentication.Controls.Add(ButtonOf("Verificar sessão OAuth", async () => await CheckOauthStatusAsync(), false, 220));
+        authentication.Controls.Add(ButtonOf("Iniciar login OAuth", StartOauthLogin, false, 210));
+        panel.Controls.Add(authentication);
+        _oauthStatus.ForeColor = Muted;
+        _oauthStatus.Width = 900;
+        _oauthStatus.Height = 55;
+        _oauthStatus.Text = "O login será aberto no PowerShell original do Python; tokens não são copiados para o Studio.";
+        panel.Controls.Add(_oauthStatus);
 
         _mlQuery.PlaceholderText = "Ex.: luminária LED, organizador, notebook gamer...";
         panel.Controls.Add(Field("Palavras-chave", _mlQuery));
@@ -471,6 +484,72 @@ public sealed class MainForm : Form
         {
             // Prévia opcional: ausência de foto não altera nem oculta o anúncio oficial.
         }
+    }
+
+
+    private void ConfigureInputTypes()
+    {
+        _name.MaxLength = 180;
+        _source.MaxLength = 80;
+        _externalId.MaxLength = 64; // IDs do Mercado Livre são alfanuméricos (MLB123...).
+        _description.MaxLength = 3000;
+        _affiliateUrl.MaxLength = 2048;
+        _listingUrl.MaxLength = 2048;
+        _mlManualUrl.MaxLength = 2048;
+        _mlQuery.MaxLength = 100;
+        _mlRoot.MaxLength = 1024;
+        _nicheOptions.MaxLength = 100;
+        _pinTitle.MaxLength = 100;
+        _pinDescription.MaxLength = 500;
+        _pinBoard.MaxLength = 120;
+        _pinUrl.MaxLength = 2048;
+        _oauthAppId.MaxLength = 30;
+        _oauthAppId.KeyPress += (_, e) =>
+        {
+            if (!char.IsControl(e.KeyChar) && (e.KeyChar < '0' || e.KeyChar > '9'))
+                e.Handled = true;
+        };
+    }
+
+    private async Task CheckOauthStatusAsync()
+    {
+        try
+        {
+            var root = _mlRoot.Text.Trim();
+            MercadoLivreBridgeService.SaveRepository(root);
+            _oauthStatus.Text = "Consultando o status do cofre OAuth...";
+            var response = await MercadoLivreBridgeService.OAuthStatusAsync(root);
+            _oauthStatus.Text = !response.Authenticated
+                ? "Sem sessão OAuth gravada. Use Iniciar login OAuth."
+                : response.TokenValid
+                    ? "Sessão OAuth encontrada no cofre do Windows; token ainda válido."
+                    : "Sessão OAuth encontrada, mas token vencido ou próximo do vencimento. A busca tentará renovar pelo Python.";
+        }
+        catch (Exception ex)
+        {
+            _oauthStatus.Text = "Não foi possível consultar o estado OAuth: " + ex.Message;
+        }
+    }
+
+    private void StartOauthLogin()
+    {
+        try
+        {
+            var root = _mlRoot.Text.Trim();
+            MercadoLivreBridgeService.SaveRepository(root);
+            MercadoLivreOAuthService.OpenOriginalLoginTerminal(root, _oauthAppId.Text.Trim());
+            _oauthStatus.Text = "Terminal aberto: conclua o login humano e o callback; depois clique Verificar sessão OAuth.";
+            MessageBox.Show(
+                "O terminal executará automation/ml_oauth.py login.\n" +
+                "Mantenha o terminal aberto até a autorização terminar.\n" +
+                "O callback cadastrado no DevCenter deve ser exatamente:\n" +
+                "https://victoralecrim11.github.io/garimpo-da-vez/oauth/callback/\n\n" +
+                "O navegador encaminhará o retorno para 127.0.0.1:8765.\n" +
+                "Nunca compartilhe a URL final contendo o parâmetro code.",
+                "Autenticação oficial Mercado Livre",
+                MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        catch (Exception ex) { ShowError(ex); }
     }
 
     private void ChoosePythonRoot()
@@ -932,9 +1011,35 @@ public sealed class MainForm : Form
             _tabs.SelectedIndex = 0;
             return false;
         }
-        if (!IsValidHttpUrl(_affiliateUrl.Text))
+        if (!ProductInputValidator.HasValidContent(_name.Text, 180, required: true) ||
+            !ProductInputValidator.HasValidContent(_source.Text, 80, required: true) ||
+            !ProductInputValidator.HasValidContent(_description.Text, 3000) ||
+            !ProductInputValidator.HasValidContent(_nicheOptions.Text, 100))
         {
-            MessageBox.Show("O link de afiliado deve ser um URL HTTP/HTTPS válido.", "Validação");
+            MessageBox.Show("Revise os campos de texto: nome, fonte, descrição e nicho.", "Validação");
+            return false;
+        }
+        if (!ProductInputValidator.IsValidExternalId(_externalId.Text))
+        {
+            MessageBox.Show("ID externo/SKU: use até 64 caracteres alfanuméricos, ponto, hífen ou sublinhado.", "Validação");
+            _externalId.Focus();
+            return false;
+        }
+        var mercadoLivre = string.Equals(_source.Text.Trim(), "Mercado Livre", StringComparison.OrdinalIgnoreCase);
+        if (!(mercadoLivre
+            ? ProductInputValidator.IsMercadoLivreListing(_listingUrl.Text.Trim())
+            : ProductInputValidator.IsValidHttpsUrl(_listingUrl.Text.Trim())))
+        {
+            MessageBox.Show("URL do anúncio: informe um endereço HTTPS válido do Mercado Livre (não meli.la).", "Validação");
+            _listingUrl.Focus();
+            return false;
+        }
+        if (!(mercadoLivre
+            ? ProductInputValidator.IsMercadoLivreAffiliate(_affiliateUrl.Text.Trim())
+            : ProductInputValidator.IsValidHttpsUrl(_affiliateUrl.Text.Trim())))
+        {
+            MessageBox.Show("Link de afiliado: use HTTPS, meli.la ou domínio oficial do Mercado Livre.", "Validação");
+            _affiliateUrl.Focus();
             return false;
         }
         _current ??= new Product();
@@ -954,6 +1059,7 @@ public sealed class MainForm : Form
         _current.Niche = _nicheOptions.Text.Trim();
         _current.Description = _description.Text.Trim();
         _current.AffiliateUrl = _affiliateUrl.Text.Trim();
+        _current.ListingUrl = _listingUrl.Text.Trim();
         _repository.SaveProduct(_current);
         _repository.AddLog(_current.Id, "Produto", "Cadastro salvo ou atualizado");
         ReloadProducts(_current.Id);
@@ -1082,9 +1188,11 @@ public sealed class MainForm : Form
     private void SaveDraft(string status = "Rascunho")
     {
         if (!SaveCurrent() || _current is null) return;
-        if (!IsValidHttpUrl(_pinUrl.Text))
+        if (!ProductInputValidator.IsValidHttpsUrl(_pinUrl.Text.Trim()) ||
+            (_current?.Source.Equals("Mercado Livre", StringComparison.OrdinalIgnoreCase) == true &&
+             !ProductInputValidator.IsMercadoLivreAffiliate(_pinUrl.Text.Trim())))
         {
-            MessageBox.Show("Corrija o link do Pin (HTTP/HTTPS) antes de salvar.");
+            MessageBox.Show("Corrija o destino HTTPS do Pin; utilize seu link oficial de afiliado.");
             return;
         }
         var approved = _repository.GetImages(_current.Id).FirstOrDefault(i => i.IsApproved);
@@ -1148,10 +1256,6 @@ public sealed class MainForm : Form
         }
         catch (Exception ex) { ShowError(ex); }
     }
-
-    private static bool IsValidHttpUrl(string input) => string.IsNullOrWhiteSpace(input) ||
-        (Uri.TryCreate(input.Trim(), UriKind.Absolute, out var url) &&
-         (url.Scheme == Uri.UriSchemeHttp || url.Scheme == Uri.UriSchemeHttps));
 
     private static OpenFileDialog OpenImageDialog() => new() {
         Filter = "Imagens (*.png;*.jpg;*.jpeg;*.bmp)|*.png;*.jpg;*.jpeg;*.bmp",
