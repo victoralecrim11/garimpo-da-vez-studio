@@ -41,8 +41,8 @@ def search_listings(query, *, category_id, limit, token):
         (automation / "ml_ingest.py").write_text(
             """
 from urllib.parse import urlparse
-def validate_url(url):
-    if urlparse(url).hostname != "www.mercadolivre.com.br":
+def validate_url(url, *, image=False):
+    if urlparse(url).hostname != ("http2.mlstatic.com" if image else "www.mercadolivre.com.br"):
         raise ValueError("URL inválida")
 def extract_item_id(url):
     return url.rsplit("/", 1)[-1]
@@ -51,10 +51,27 @@ def extract_item_id(url):
         (automation / "garimpo.py").write_text(
             """
 from pathlib import Path
+import json
 import sys
-if sys.argv[1] != "ingest-url":
-    sys.exit(2)
-Path(__file__).parent.joinpath("imported.txt").write_text(sys.argv[2], encoding="utf-8")
+
+DEFAULT_STORE = Path(__file__).parent / "data" / "pins.json"
+
+def load_store(path):
+    return json.loads(path.read_text(encoding="utf-8"))
+
+if __name__ == "__main__":
+    if sys.argv[1] != "ingest-url":
+        sys.exit(2)
+    url = sys.argv[2]
+    Path(__file__).parent.joinpath("imported.txt").write_text(url, encoding="utf-8")
+    DEFAULT_STORE.parent.mkdir(exist_ok=True)
+    DEFAULT_STORE.write_text(json.dumps({
+        "pins": {"fixture": {
+            "source_url": url, "resolved_url": url,
+            "item_id": "MLB123456789", "title": "Produto de teste",
+            "ml_category_id": "MLB123", "source_image_url": "https://http2.mlstatic.com/fixture.jpg"
+        }}
+    }), encoding="utf-8")
 """.strip(), encoding="utf-8"
         )
 
@@ -88,6 +105,20 @@ Path(__file__).parent.joinpath("imported.txt").write_text(sys.argv[2], encoding=
         self.assertFalse(obj["ok"])
         self.assertEqual(obj["error"], "API oficial Mercado Livre retornou acesso negado (401/403); não há contorno.")
         self.assertNotIn("items", obj)
+
+    def test_manual_url_import_returns_verified_queue_fields(self):
+        url = "https://www.mercadolivre.com.br/item/MLB123456789"
+        code, obj = self.run_bridge("manual", "--url", url)
+        self.assertEqual(code, 0)
+        self.assertTrue(obj["ok"])
+        self.assertEqual(obj["items"][0]["id"], "MLB123456789")
+        self.assertEqual(obj["items"][0]["thumbnail"], "https://http2.mlstatic.com/fixture.jpg")
+        self.assertEqual(obj["origin"], "url_manual")
+
+    def test_manual_url_blocks_external_domain(self):
+        code, obj = self.run_bridge("manual", "--url", "https://example.com/item/MLB123456789")
+        self.assertNotEqual(code, 0)
+        self.assertFalse(obj["ok"])
 
     def test_ingest_checks_matching_listing_url(self):
         code, obj = self.run_bridge(
