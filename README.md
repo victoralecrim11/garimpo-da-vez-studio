@@ -4,6 +4,11 @@ Aplicativo desktop **Windows Forms (C# / .NET 10)** para garimpo de anúncios of
 
 ## Funcionalidades
 
+- **Nome do produto pesquisável:** na aba **01 · Produto**, digite 3 ou mais caracteres para ver cadastros locais e sugestões oficiais, ou clique em **Buscar sugestões** / pressione Enter. Ao escolher um anúncio real, o aplicativo preenche nome, ID e URL original; tenta selecionar categoria e subcategoria e exibe miniatura quando disponível. Os dados são editáveis e não são salvos antes de clicar em **Salvar produto**.
+  - As sugestões são identificadas como **Meu cadastro**, **Anúncio** ou **Referência de catálogo**. O catálogo oficial `/products/search` é consultado **somente quando a busca de anúncios for bloqueada** e não fornece ID de anúncio do vendedor nem link comissionado.
+  - Use **Preencher pela URL** depois de informar um anúncio no campo **URL do anúncio original** para recuperar os metadados disponíveis sem registrar o produto automaticamente na fila Python.
+  - Se ambos os endpoints forem negados, o sistema mantém apenas correspondências do SQLite e a entrada manual. Há uma pausa entre buscas e suspensão temporária após indisponibilidade para evitar consultas repetitivas.
+  - Miniaturas são apenas prévias remotas; o arquivo original para Pins continua dependendo de autorização e seleção explícita do usuário.
 - **Garimpo Mercado Livre:** consulta categorias e subcategorias oficiais e, quando o acesso autoriza, pesquisa anúncios reais por termo na API com **`automation/ml_discovery.py`**. Exibe miniatura oficial do anúncio à direita da lista, se disponível; a prévia não concede licença de uso da foto.
 - **Alternativa a 401/403:** quando o endpoint de busca negar acesso, o usuário cola a URL real do produto na guia Garimpo e usa **Importar diretamente pela URL**. O motor Python existente usa os metadados permitidos para criar rascunho, sem inventar itens ou contornar a API.
 - **Cadastro por categorias oficiais:** seletores de categoria e subcategoria no formulário Produto com IDs persistidos no SQLite; os nomes antigos são preservados até o usuário escolher a classificação oficial.
@@ -41,6 +46,10 @@ dotnet run
 ```
 
 No app:
+
+**Caminho rápido pelo campo Nome:** abra a aba **01 · Produto**, digite o nome do item, escolha uma sugestão e confira os campos preenchidos. Para anúncios já conhecidos, cole a URL original e clique **Preencher pela URL**. O link de afiliado precisa ser informado separadamente com a Barra/Central oficial.
+
+**Caminho avançado pela busca de anúncios:**
 
 1. Abra a guia **02 · Garimpo Mercado Livre**.
 2. Em **Selecionar pasta Python**, escolha a raiz `garimpo-da-vez` (a pasta que contém `automation`). Se os repositórios forem irmãos, a descoberta pode ser automática.
