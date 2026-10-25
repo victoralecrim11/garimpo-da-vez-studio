@@ -98,6 +98,19 @@ endpoints de marketplace, API do Pinterest e automação da interface do ChatGPT
 - [ ] Salvar categoria raiz e folha no SQLite, fechar e reabrir o programa sem carregar a API: os IDs salvos devem continuar selecionáveis.
 - [ ] Confirmar manualmente qualquer categoria sugerida pelo preditor e revisar os dados antes de publicar.
 
+## Busca lateral de produtos (2026-10)
+
+- [ ] Com SQLite vazio, observar mensagem "Nenhum produto salvo" em vez de um painel silenciosamente vazio.
+- [ ] Digitar "Abajur" no campo lateral; após breve pausa, receber anúncios oficiais quando disponíveis ou referências de catálogo identificadas.
+- [ ] Simular HTTP 401/403 nos serviços oficiais: apresentar orientação de importação por URL sem inventar produtos.
+- [ ] Sem configurar a pasta do projeto Python, apresentar orientação para a aba 02, mantendo a busca local operacional.
+- [ ] Clicar num anúncio da lateral: abrir aba Produto com nome, ID e URL original; verificar que ele NÃO foi salvo automaticamente no SQLite.
+- [ ] Clicar em referência de catálogo: nome e atributos disponíveis, sem criar ID de anúncio nem link de afiliado.
+- [ ] Salvar o produto revisado e localizar o resultado pelo rótulo Salvo na lateral.
+- [ ] Alterar o filtro enquanto a API está respondendo; descartar a resposta antiga e não substituir o formulário selecionado.
+- [ ] Digitar duas letras: filtrar localmente sem chamar a busca remota. Apagar o filtro para listar todos os salvos.
+- [ ] Confirmar que produtos locais, anúncios e referências de catálogo são objetos de tipos diferentes na seleção.
+
 ## Título resumido do produto (2026-10)
 
 - [ ] Pesquisar `Lumi` e selecionar um catálogo cujo nome oficial contenha várias expressões separadas por vírgulas: o campo deve receber uma sugestão curta, não a lista inteira de palavras-chave.

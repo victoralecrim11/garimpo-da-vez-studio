@@ -1,5 +1,6 @@
 using System.Text.Json;
 using GarimpoDaVezStudio.Services;
+using GarimpoDaVezStudio.Models;
 
 internal static class Program
 {
@@ -97,8 +98,44 @@ internal static class Program
             failures++;
         }
 
+        // A busca lateral mistura resultados salvos e sugestões, mas nunca
+        // pode apresentá-los todos como produtos persistidos no banco SQLite.
+        var local = new Product { Name = "Abajur de madeira", Niche = "Decoração" };
+        var localEntry = new SidebarSearchItem { LocalProduct = local };
+        var catalogEntry = new SidebarSearchItem { OfficialSuggestion = new ProductNameSuggestion {
+            Kind = "catalog", Id = "MLBU1234", Name = "Abajur LED decorativo" } };
+        var listingEntry = new SidebarSearchItem { OfficialSuggestion = new ProductNameSuggestion {
+            Kind = "listing", Id = "MLB123456789", Name = "Abajur de mesa, Abajur decorativo, LED" } };
+        using var sidebar = new ListBox { DisplayMember = "" };
+        sidebar.Items.AddRange(new object[] { localEntry, catalogEntry, listingEntry });
+        var expectedSidebar = new[] { "Salvo · Abajur de madeira",
+            "Referência de catálogo · Abajur LED decorativo",
+            "Anúncio · Abajur de mesa" };
+        for (var i = 0; i < expectedSidebar.Length; i++)
+        {
+            if (sidebar.GetItemText(sidebar.Items[i]) != expectedSidebar[i])
+            {
+                Console.Error.WriteLine("Falha: a busca lateral não diferencia itens salvos e oficiais.");
+                failures++;
+            }
+        }
+        sidebar.SelectedIndex = 2;
+        if (sidebar.SelectedItem is not SidebarSearchItem chosen ||
+            chosen.LocalProduct is not null || chosen.OfficialSuggestion?.Id != "MLB123456789")
+        {
+            Console.Error.WriteLine("Falha: sugestão oficial da lateral perdeu o ID ao ser selecionada.");
+            failures++;
+        }
+        sidebar.SelectedIndex = 0;
+        if (sidebar.SelectedItem is not SidebarSearchItem saved ||
+            saved.LocalProduct?.Id != local.Id || saved.OfficialSuggestion is not null)
+        {
+            Console.Error.WriteLine("Falha: produto salvo foi confundido com resultado remoto.");
+            failures++;
+        }
+
         if (failures > 0) return 1;
-        Console.WriteLine("11 verificações de rótulo, títulos longos, seleção e JSON aprovadas.");
+        Console.WriteLine("16 verificações de sugestões, busca lateral e seleção aprovadas.");
         return 0;
     }
 }

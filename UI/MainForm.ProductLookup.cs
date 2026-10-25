@@ -173,7 +173,12 @@ public sealed partial class MainForm
 
     private void ApplySelectedProductSuggestion()
     {
-        if (_productNameSuggestions.SelectedItem is not ProductNameSuggestion suggestion) return;
+        if (_productNameSuggestions.SelectedItem is ProductNameSuggestion suggestion)
+            ApplySelectedProductSuggestion(suggestion);
+    }
+
+    private void ApplySelectedProductSuggestion(ProductNameSuggestion suggestion)
+    {
         _productNameTimer.Stop();
         _productNameRevision++;
         if (suggestion.Kind == "local")

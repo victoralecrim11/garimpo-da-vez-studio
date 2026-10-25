@@ -154,9 +154,9 @@ public sealed partial class MainForm : Form
         sidebar.Controls.Add(title, 0, 0);
 
         _search.Dock = DockStyle.Fill;
-        _search.PlaceholderText = "Buscar produto ou nicho...";
+        _search.PlaceholderText = "Buscar produtos salvos ou online...";
         StyleInput(_search);
-        _search.TextChanged += (_, _) => ReloadProducts(_current?.Id);
+        _search.TextChanged += (_, _) => SidebarSearchTextChanged();
         sidebar.Controls.Add(_search, 0, 1);
 
         _products.Dock = DockStyle.Fill;
@@ -165,12 +165,15 @@ public sealed partial class MainForm : Form
         _products.BorderStyle = BorderStyle.None;
         _products.Font = new Font("Segoe UI", 11f);
         _products.ItemHeight = 37;
-        _products.DisplayMember = nameof(Product.Name);
+        // Cada item mantém seu tipo (produto salvo ou sugestão oficial).
+        // ToString exibe a origem para não confundir sugestões com cadastros.
+        _products.DisplayMember = "";
         _products.SelectedIndexChanged += (_, _) =>
         {
-            if (!_reloadingProducts && _products.SelectedItem is Product p) LoadProduct(p);
+            if (!_reloadingProducts && _products.SelectedItem is SidebarSearchItem selected)
+                ChooseSidebarItem(selected);
         };
-        sidebar.Controls.Add(_products, 0, 2);
+        ConfigureSidebarSearch(sidebar);
 
         var actions = new FlowLayoutPanel {
             Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight,
@@ -944,29 +947,56 @@ public sealed partial class MainForm : Form
     private void ReloadProducts(string? preferredId = null)
     {
         var query = _search.Text.Trim();
-        var products = _repository.GetProducts().Where(p =>
+        var saved = _repository.GetProducts();
+        var products = saved.Where(p =>
             p.Name.Contains(query, StringComparison.OrdinalIgnoreCase) ||
             p.Niche.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-            p.Category.Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
+            p.Category.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+            p.ExternalId.Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        // Resultados remotos não são gravados em SQLite até o usuário revisar
+        // os dados na aba Produto e clicar em Salvar.
+        var entries = products.Select(p => new SidebarSearchItem { LocalProduct = p }).ToList();
+        if (query.Length >= 3)
+            entries.AddRange(_sidebarOfficialSuggestions.Select(s =>
+                new SidebarSearchItem { OfficialSuggestion = s }));
+
         _reloadingProducts = true;
         _products.BeginUpdate();
-        _products.DataSource = null;
-        _products.DataSource = products;
-        _products.DisplayMember = nameof(Product.Name);
-        if (products.Count > 0)
+        try
         {
-            var index = products.FindIndex(p => p.Id == preferredId);
-            _products.SelectedIndex = index >= 0 ? index : 0;
+            _products.Items.Clear();
+            if (entries.Count > 0)
+                _products.Items.AddRange(entries.Cast<object>().ToArray());
+
+            var preferredIndex = string.IsNullOrWhiteSpace(preferredId) ? -1 :
+                entries.FindIndex(e => e.LocalProduct?.Id == preferredId);
+            // Digitar nunca seleciona automaticamente outro produto.
+            var index = preferredIndex >= 0 ? preferredIndex :
+                query.Length == 0 && _current is null && products.Count > 0 ? 0 : -1;
+            _products.SelectedIndex = index;
         }
-        else if (_current is null)
+        finally
         {
-            NewProduct();
+            _products.EndUpdate();
+            _reloadingProducts = false;
         }
-        _products.EndUpdate();
-        _reloadingProducts = false;
-        if (_products.SelectedItem is Product selected &&
+
+        if (_products.SelectedItem is SidebarSearchItem { LocalProduct: Product selected } &&
             (_current is null || selected.Id != _current.Id))
             LoadProduct(selected);
+        if (query.Length == 0)
+            _sidebarSearchStatus.Text = saved.Count == 0
+                ? "Nenhum produto salvo. Digite 3 letras para buscar anúncios ou referências online."
+                : $"{saved.Count} produto(s) salvo(s). Digite para filtrar ou buscar online.";
+        else if (query.Length < 3)
+            _sidebarSearchStatus.Text = "Filtro local ativo. Digite 3 letras para pesquisar também no Mercado Livre.";
+        else
+            _sidebarSearchStatus.Text = entries.Count == 0
+                ? "Sem resultados locais. Pesquisando anúncios ou referências oficiais..."
+                : $"{products.Count} salvo(s) e {_sidebarOfficialSuggestions.Count} resultado(s) online.";
+        if (entries.Count == 0 && query.Length == 0 && _current is null)
+            NewProduct();
     }
 
     private void LoadProduct(Product p)
