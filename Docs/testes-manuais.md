@@ -53,3 +53,21 @@ endpoints de marketplace, API do Pinterest e automação da interface do ChatGPT
 - [ ] Clicar no retângulo da imagem original, selecionar um arquivo válido no diálogo e conferir caminho e prévia.
 - [ ] Cancelar o diálogo sem alterar a imagem previamente salva.
 - [ ] Importar anúncio cujo título/thumbnail não é acessível e confirmar que o sistema NÃO inventa dados.
+
+## Tipagem, URL editável e autenticação OAuth (2026-10)
+
+- [ ] Aba Produto: digitar URL HTTPS oficial no campo `URL do anúncio original`, salvar, reiniciar Studio e conferir persistência no SQLite.
+- [ ] Colar `https://meli.la/...` no campo **Link oficial do afiliado** e confirmar aceitação após revisão da relação com o anúncio.
+- [ ] Tentar inserir `meli.la` como URL **original** e confirmar recusa.
+- [ ] Rejeitar `http://...`, domínio falso, usuário/senha na URL e porta customizada.
+- [ ] Conferir que `MLB1234567890` e `RS1033-VHDC` são IDs válidos; espaços e símbolos fora do padrão devem ser rejeitados.
+- [ ] Confirmar limites de texto (nome, descrição, nicho, título/descrição do Pin).
+- [ ] Aba Garimpo: informar App ID somente numérico e rejeitar letras/valores incorretos.
+- [ ] Acionar **Verificar sessão OAuth** sem cofre; deve informar ausência de sessão sem expor tokens.
+- [ ] Com cofre já autenticado, acionar **Verificar sessão OAuth**; observar validade sem exibir credenciais.
+- [ ] Acionar **Iniciar login OAuth** no Windows: PowerShell deve abrir, solicitar Client Secret oculto se necessário e abrir o navegador.
+- [ ] Confirmar o URI cadastrado no DevCenter: `https://victoralecrim11.github.io/garimpo-da-vez/oauth/callback/`.
+- [ ] Com terminal ainda aberto, completar autorização; callback deve encaminhar ao servidor local `127.0.0.1:8765`.
+- [ ] Após login, revisar status no Studio. Repetir em caso de token revogado/vencido.
+- [ ] Mesmo autorizado, testar endpoint bloqueado (403), garantindo que a interface mostre o erro e ofereça entrada por URL.
+- [ ] Nunca inserir Client Secret, refresh token ou código de callback em arquivos de testes, commits ou screenshots.
