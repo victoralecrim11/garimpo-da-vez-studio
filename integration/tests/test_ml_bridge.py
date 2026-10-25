@@ -48,6 +48,17 @@ def extract_item_id(url):
     return url.rsplit("/", 1)[-1]
 """.strip(), encoding="utf-8"
         )
+        (automation / "ml_oauth.py").write_text(
+            """
+import time
+EXPIRY_SKEW_SECONDS = 120
+def read_credentials():
+    return {"expires_at": int(time.time()) + 3600,
+            "access_token": "secret-must-not-appear",
+            "client_secret": "another-hidden-secret",
+            "refresh_token": "refresh-secret"}
+""".strip(), encoding="utf-8"
+        )
         (automation / "garimpo.py").write_text(
             """
 from pathlib import Path
@@ -82,6 +93,25 @@ if __name__ == "__main__":
             timeout=10
         )
         return result.returncode, json.loads(result.stdout)
+
+    def test_oauth_status_does_not_export_tokens(self):
+        code, obj = self.run_bridge("oauth_status")
+        self.assertEqual(code, 0)
+        self.assertTrue(obj["authenticated"])
+        self.assertTrue(obj["token_valid"])
+        self.assertEqual(set(obj.keys()), {"ok", "authenticated", "token_valid", "origin"})
+        self.assertNotIn("secret", json.dumps(obj))
+
+    def test_oauth_status_without_login(self):
+        oauth = self.root / "automation" / "ml_oauth.py"
+        oauth.write_text(
+            "EXPIRY_SKEW_SECONDS = 120\ndef read_credentials():\n    return None\n",
+            encoding="utf-8",
+        )
+        code, obj = self.run_bridge("oauth_status")
+        self.assertEqual(code, 0)
+        self.assertFalse(obj["authenticated"])
+        self.assertFalse(obj["token_valid"])
 
     def test_categories_and_children(self):
         code, obj = self.run_bridge("categories")
