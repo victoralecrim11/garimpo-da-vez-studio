@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+from urllib.parse import urlsplit
 
 
 def emit(data: dict) -> int:
@@ -15,10 +16,87 @@ def emit(data: dict) -> int:
     return 0
 
 
+
+def safe_picture(value: object) -> str:
+    """Aceita apenas miniaturas HTTPS oficiais, sem baixar conteúdo."""
+    if not isinstance(value, str) or len(value) > 2048:
+        return ""
+    parts = urlsplit(value)
+    host = (parts.hostname or "").lower()
+    return value if (parts.scheme == "https" and not parts.username and not parts.password
+                     and parts.port in (None, 443)
+                     and (host == "mlstatic.com" or host.endswith(".mlstatic.com"))) else ""
+
+
+def official_suggestions(query: str, token: str, category: str) -> dict:
+    """Anúncios individuais primeiro; catálogo de referência apenas se busca for bloqueada."""
+    from automation.ml_discovery import search_listings, _api_get, DiscoveryError
+    if len(query.strip()) < 3 or len(query) > 100:
+        raise ValueError("Informe pelo menos três caracteres no nome do produto.")
+    try:
+        listings = search_listings(query, category_id=category, limit=12, token=token)
+        return {"ok": True, "origin": "anuncios_oficiais", "suggestions": [
+            {"id": row["id"], "name": row["title"], "kind": "listing",
+             "category_id": row.get("category_id") or "", "permalink": row.get("permalink") or "",
+             "thumbnail": safe_picture(row.get("thumbnail") or ""),
+             "description": "", "verified": True}
+            for row in listings
+        ]}
+    except DiscoveryError as exc:
+        if "HTTP 401" not in str(exc) and "HTTP 403" not in str(exc):
+            raise
+        # Busca por anúncios pode ser negada; catálogo é recurso distinto, não contorno.
+        # Um produto de catálogo NÃO é anúncio individual com link de comissão.
+        try:
+            raw = _api_get("/products/search", {
+                "site_id": "MLB", "status": "active", "q": query, "limit": 12
+            }, token=token)
+        except DiscoveryError as catalog_error:
+            return {"ok": True, "origin": "indisponivel", "suggestions": [],
+                    "warning": "Busca de anúncios indisponível: " + str(exc)[:200]
+                               + " Catálogo também indisponível: " + str(catalog_error)[:160]}
+        rows = raw.get("results", []) if isinstance(raw, dict) else []
+        results = []
+        for row in rows[:12]:
+            if not isinstance(row, dict):
+                continue
+            product_id, name = row.get("id"), row.get("name")
+            if not isinstance(product_id, str) or not isinstance(name, str) or not name.strip():
+                continue
+            images = row.get("pictures") or []
+            image = images[0].get("secure_url") if images and isinstance(images[0], dict) else ""
+            results.append({
+                "id": product_id, "name": name.strip()[:180], "kind": "catalog",
+                "category_id": "", "permalink": "",
+                "thumbnail": safe_picture(image), "description": "", "verified": True
+            })
+        return {"ok": True, "origin": "catalogo_referencia", "suggestions": results,
+                "warning": "Busca de anúncios bloqueada (401/403). Resultados são produtos do catálogo, não anúncios ou links comissionados."}
+
+
+def official_preview(url: str, token: str) -> dict:
+    """Pré-preenchimento sem ingestão, sem gravação da fila e sem download de imagens."""
+    from automation.ml_ingest import get_product_metadata
+    info = get_product_metadata(url, token=token or None)
+    name = str(info.get("title") or "").strip()[:180]
+    if not name:
+        raise ValueError("Nenhum título disponível para esta URL; informe os dados manualmente.")
+    return {"ok": True, "origin": str(info.get("metadata_source") or "indisponivel"),
+            "suggestions": [{
+                "id": str(info.get("item_id") or ""), "name": name, "kind": "listing",
+                "category_id": str(info.get("ml_category_id") or ""),
+                "permalink": str(info.get("resolved_url") or url),
+                "thumbnail": safe_picture(info.get("image_url")),
+                "description": str(info.get("summary") or "")[:400],
+                "verified": bool(info.get("metadata_verified"))
+            }],
+            "warning": "Dados podem ser parciais; confira os detalhes e o link original."}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", required=True)
-    parser.add_argument("--action", choices=["categories", "children", "search", "ingest", "manual", "oauth_status"], required=True)
+    parser.add_argument("--action", choices=["categories", "children", "search", "ingest", "manual", "oauth_status", "suggest", "preview_url"], required=True)
     parser.add_argument("--category", default="")
     parser.add_argument("--query", default="")
     parser.add_argument("--url", default="")
@@ -45,6 +123,10 @@ def main() -> int:
     )
 
     token = read_token()
+    if args.action == "suggest":
+        return emit(official_suggestions(args.query.strip(), token, args.category))
+    if args.action == "preview_url":
+        return emit(official_preview(args.url, token))
     if args.action == "categories":
         rows, origin = root_categories(token=token)
         return emit({"ok": True, "categories": rows, "origin": origin})
