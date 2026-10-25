@@ -312,6 +312,167 @@ public sealed class MainForm : Form
         return page;
     }
 
+
+    private void SetupProductCategoryFields()
+    {
+        foreach (var combo in new[] { _productCategory, _productSubcategory })
+        {
+            combo.Width = 445;
+            combo.Height = 37;
+            combo.DropDownStyle = ComboBoxStyle.DropDownList;
+            combo.BackColor = Card;
+            combo.ForeColor = Foreground;
+        }
+        _productCategory.Items.Add(new MercadoLivreCategory { Name = "Carregar categorias oficiais para selecionar" });
+        _productCategory.SelectedIndex = 0;
+        _productSubcategory.Items.Add(new MercadoLivreCategory { Name = "Selecione primeiro uma categoria" });
+        _productSubcategory.SelectedIndex = 0;
+        _productCategory.SelectedIndexChanged += async (_, _) =>
+        {
+            if (_suspendProductCategoryEvents) return;
+            var selected = _productCategory.SelectedItem as MercadoLivreCategory;
+            if (selected is { Id.Length: > 0 })
+            {
+                _category.Text = selected.Name;
+                FillNicheSuggestions(_nicheOptions.Text);
+            }
+            await LoadProductSubcategoriesAsync(keepSavedSelection: false);
+        };
+        _productSubcategory.SelectedIndexChanged += (_, _) =>
+        {
+            if (_suspendProductCategoryEvents) return;
+            var sub = _productSubcategory.SelectedItem as MercadoLivreCategory;
+            if (sub is { Id.Length: > 0 })
+            {
+                _category.Text = sub.Name;
+                FillNicheSuggestions(_nicheOptions.Text);
+            }
+        };
+        _nicheOptions.Width = 445;
+        _nicheOptions.Height = 37;
+        _nicheOptions.DropDownStyle = ComboBoxStyle.DropDown;
+        _nicheOptions.BackColor = Card;
+        _nicheOptions.ForeColor = Foreground;
+        FillNicheSuggestions("");
+    }
+
+    private void FillNicheSuggestions(string preservedText)
+    {
+        var suggestions = NicheCatalog.GetSuggestions(_category.Text);
+        _nicheOptions.BeginUpdate();
+        _nicheOptions.Items.Clear();
+        _nicheOptions.Items.AddRange(suggestions.Cast<object>().ToArray());
+        _nicheOptions.Text = preservedText;
+        _nicheOptions.EndUpdate();
+    }
+
+    private void SelectSavedProductCategory(Product product)
+    {
+        _suspendProductCategoryEvents = true;
+        try
+        {
+            var index = _productCategory.Items.Cast<MercadoLivreCategory>().ToList().FindIndex(
+                x => !string.IsNullOrWhiteSpace(x.Id) && x.Id == product.CategoryId);
+            _productCategory.SelectedIndex = index >= 0 ? index : 0;
+            _productSubcategory.Items.Clear();
+            _productSubcategory.Items.Add(new MercadoLivreCategory { Name = "Carregue a categoria para consultar subcategorias" });
+            _productSubcategory.SelectedIndex = 0;
+        }
+        finally { _suspendProductCategoryEvents = false; }
+        if (_productCategory.SelectedItem is MercadoLivreCategory { Id.Length: > 0 })
+            _ = LoadProductSubcategoriesAsync(keepSavedSelection: true);
+    }
+
+    private void FillProductCategories(IReadOnlyList<MercadoLivreCategory> categories)
+    {
+        _suspendProductCategoryEvents = true;
+        try
+        {
+            _productCategory.Items.Clear();
+            _productCategory.Items.Add(new MercadoLivreCategory { Name = "Selecione uma categoria" });
+            foreach (var category in categories) _productCategory.Items.Add(category);
+            var saved = _current?.CategoryId ?? "";
+            int index = _productCategory.Items.Cast<MercadoLivreCategory>().ToList()
+                .FindIndex(c => c.Id == saved && saved.Length > 0);
+            _productCategory.SelectedIndex = index >= 0 ? index : 0;
+        }
+        finally { _suspendProductCategoryEvents = false; }
+        if (_productCategory.SelectedItem is MercadoLivreCategory { Id.Length: > 0 })
+            _ = LoadProductSubcategoriesAsync(keepSavedSelection: true);
+    }
+
+    private async Task LoadProductSubcategoriesAsync(bool keepSavedSelection)
+    {
+        var category = _productCategory.SelectedItem as MercadoLivreCategory;
+        var wantedSubcategory = keepSavedSelection ? _current?.SubcategoryId ?? "" : "";
+        _suspendProductCategoryEvents = true;
+        _productSubcategory.Items.Clear();
+        _productSubcategory.Items.Add(new MercadoLivreCategory { Name = "Sem subcategoria" });
+        _productSubcategory.SelectedIndex = 0;
+        _suspendProductCategoryEvents = false;
+        if (category is null || string.IsNullOrEmpty(category.Id)) return;
+        try
+        {
+            var root = MercadoLivreBridgeService.SavedRepository;
+            var response = await MercadoLivreBridgeService.ChildrenAsync(root, category.Id);
+            // Se o usuário mudou de categoria durante a consulta, descarta resultados antigos.
+            if (!string.Equals((_productCategory.SelectedItem as MercadoLivreCategory)?.Id,
+                category.Id, StringComparison.Ordinal)) return;
+            _suspendProductCategoryEvents = true;
+            foreach (var child in response.Categories) _productSubcategory.Items.Add(child);
+            var index = _productSubcategory.Items.Cast<MercadoLivreCategory>().ToList()
+                .FindIndex(x => x.Id == wantedSubcategory && wantedSubcategory.Length > 0);
+            _productSubcategory.SelectedIndex = index >= 0 ? index : 0;
+        }
+        catch (Exception ex)
+        {
+            _footer.Text = "Subcategorias indisponíveis: " + ex.Message;
+        }
+        finally { _suspendProductCategoryEvents = false; }
+    }
+
+    private async Task ShowMlPreviewAsync()
+    {
+        int generation = ++_mlPreviewGeneration;
+        var urlString = SelectedMlListing()?.Thumbnail;
+        _mlPreview.Image?.Dispose();
+        _mlPreview.Image = null;
+        if (!Uri.TryCreate(urlString, UriKind.Absolute, out var url) || url.Scheme != Uri.UriSchemeHttps
+            || url.UserInfo.Length > 0 || !url.IsDefaultPort) return;
+        var host = url.IdnHost.ToLowerInvariant();
+        if (host != "mlstatic.com" && !host.EndsWith(".mlstatic.com", StringComparison.Ordinal)) return;
+        try
+        {
+            using var response = await ThumbnailClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
+            if (!response.IsSuccessStatusCode ||
+                response.Content.Headers.ContentLength > 4_000_000) return;
+            var mime = response.Content.Headers.ContentType?.MediaType ?? "";
+            if (!mime.StartsWith("image/", StringComparison.OrdinalIgnoreCase)) return;
+            await using var stream = await response.Content.ReadAsStreamAsync();
+            using var bytes = new MemoryStream();
+            var buffer = new byte[32768];
+            int read;
+            while ((read = await stream.ReadAsync(buffer)) > 0)
+            {
+                if (bytes.Length + read > 4_000_000) return;
+                bytes.Write(buffer, 0, read);
+            }
+            bytes.Position = 0;
+            using var picture = Image.FromStream(bytes);
+            var copy = new Bitmap(picture);
+            if (generation != _mlPreviewGeneration || _mlPreview.IsDisposed)
+            {
+                copy.Dispose();
+                return;
+            }
+            _mlPreview.Image = copy;
+        }
+        catch (Exception)
+        {
+            // Prévia opcional: ausência de foto não altera nem oculta o anúncio oficial.
+        }
+    }
+
     private void ChoosePythonRoot()
     {
         using var picker = new FolderBrowserDialog { Description = "Selecione o repositório garimpo-da-vez (pasta com automation)" };
