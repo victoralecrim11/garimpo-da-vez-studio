@@ -187,7 +187,39 @@ public sealed partial class MainForm
             : "Nome, ID e URL preenchidos. Confira categoria, descrição e fotografia antes de salvar.";
         _ = ShowProductSuggestionPreviewAsync(suggestion.Thumbnail);
         if (suggestion.Kind == "listing")
+        {
             _ = SelectOfficialCategoryAsync(suggestion.CategoryId, _current?.Id ?? "");
+            if (ProductInputValidator.IsMercadoLivreListing(suggestion.Permalink, required: true))
+                _ = CompleteListingDescriptionAsync(suggestion.Permalink, _current?.Id ?? "");
+        }
+    }
+
+    private async Task CompleteListingDescriptionAsync(string url, string productId)
+    {
+        var root = MercadoLivreBridgeService.SavedRepository;
+        if (!MercadoLivreBridgeService.ValidRepository(root)) return;
+        try
+        {
+            var result = await MercadoLivreBridgeService.PreviewByUrlAsync(root, url);
+            if (_current?.Id != productId) return;
+            var details = result.Suggestions.FirstOrDefault();
+            if (details is null) return;
+            var description = details.Description.Trim();
+            // O resumo genérico padrão do verificador não substitui uma descrição real.
+            if (!string.IsNullOrWhiteSpace(description) &&
+                !description.StartsWith("Confira detalhes e especificações", StringComparison.OrdinalIgnoreCase) &&
+                string.IsNullOrWhiteSpace(_description.Text))
+            {
+                _description.Text = description;
+                _productNameStatus.Text += details.Verified
+                    ? " Descrição obtida da API; confira as informações."
+                    : " Descrição pública não verificada: confira antes de salvar.";
+            }
+        }
+        catch (Exception)
+        {
+            // Metadados opcionais; o cadastro selecionado continua editável.
+        }
     }
 
     private async Task SelectOfficialCategoryAsync(string categoryId, string productId)
