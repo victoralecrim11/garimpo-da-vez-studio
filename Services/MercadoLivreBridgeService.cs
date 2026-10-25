@@ -45,6 +45,11 @@ public sealed class ProductNameSuggestion
         "catalog" => "Referência de catálogo · " + Name,
         _ => Name
     };
+
+    // ListBox pode ignorar DisplayMember em atualizações de DataSource;
+    // o fallback padrão de object.ToString() mostra o nome da classe.
+    // Retornar o rótulo humano garante apresentação correta nos dois modos.
+    public override string ToString() => Display;
 }
 
 public sealed class MercadoLivreResponse
