@@ -84,3 +84,16 @@ endpoints de marketplace, API do Pinterest e automação da interface do ChatGPT
 - [ ] Consultar URL com metadados parciais e verificar aviso de revisão; conferir categoria e preço antes de publicar.
 - [ ] Confirmar que miniatura exibida na interface não é gravada como imagem licenciada para divulgação.
 - [ ] Clicar Salvar produto após a seleção e recarregar o registro no SQLite.
+
+## Preenchimento automático da classificação e descrição (2026-10)
+
+- [ ] Selecionar um anúncio real e confirmar categoria raiz, caminho completo da subcategoria e descrição do vendedor retornada pela API, quando acessível.
+- [ ] Selecionar um produto de catálogo sem anúncio e confirmar categoria oficial ou categoria predita identificada como sugestão.
+- [ ] Se houver texto de short_description no catálogo, mostrar o texto sem atribuí-lo a um vendedor.
+- [ ] Quando só houver atributos oficiais, apresentar ficha técnica com os valores existentes, sem inventar informações.
+- [ ] Se nem descrição nem atributos forem devolvidos, deixar a descrição vazia e mostrar aviso.
+- [ ] Se o endpoint de descrições responder 401/403, manter nome e categoria disponíveis sem fabricar conteúdo.
+- [ ] Editar a descrição manualmente durante uma consulta e confirmar que o resultado não sobrescreve a edição.
+- [ ] Escolher outro produto enquanto aguarda resposta e confirmar que a categoria e a descrição antigas não são aplicadas.
+- [ ] Salvar categoria raiz e folha no SQLite, fechar e reabrir o programa sem carregar a API: os IDs salvos devem continuar selecionáveis.
+- [ ] Confirmar manualmente qualquer categoria sugerida pelo preditor e revisar os dados antes de publicar.

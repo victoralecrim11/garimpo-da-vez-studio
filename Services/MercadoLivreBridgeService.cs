@@ -34,6 +34,10 @@ public sealed class ProductNameSuggestion
     public string Permalink { get; set; } = "";
     public string Thumbnail { get; set; } = "";
     public string Description { get; set; } = "";
+    [JsonPropertyName("description_source")]
+    public string DescriptionSource { get; set; } = "";
+    [JsonPropertyName("category_source")]
+    public string CategorySource { get; set; } = "";
     public bool Verified { get; set; }
     public string LocalProductId { get; set; } = "";
 
@@ -127,6 +131,10 @@ public static class MercadoLivreBridgeService
 
     public static Task<MercadoLivreResponse> SuggestNamesAsync(string root, string query, string category) =>
         ExecuteAsync(root, "suggest", "--query", query, "--category", category);
+
+    public static Task<MercadoLivreResponse> EnrichSuggestionAsync(string root, ProductNameSuggestion suggestion) =>
+        ExecuteAsync(root, "enrich", "--kind", suggestion.Kind, "--item-id", suggestion.Id,
+            "--query", suggestion.Name, "--category", suggestion.CategoryId);
 
     public static Task<MercadoLivreResponse> PreviewByUrlAsync(string root, string url) =>
         ExecuteAsync(root, "preview_url", "--url", url);

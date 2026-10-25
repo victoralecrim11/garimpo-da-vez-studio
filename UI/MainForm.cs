@@ -387,6 +387,16 @@ public sealed partial class MainForm : Form
         {
             var index = _productCategory.Items.Cast<MercadoLivreCategory>().ToList().FindIndex(
                 x => !string.IsNullOrWhiteSpace(x.Id) && x.Id == product.CategoryId);
+            if (index < 0 && !string.IsNullOrWhiteSpace(product.CategoryId))
+            {
+                // O usuário pode reabrir o Studio antes de carregar a árvore de categorias.
+                // Mantém o ID persistido sem inventar o nome oficial da categoria raiz.
+                index = _productCategory.Items.Add(new MercadoLivreCategory
+                {
+                    Id = product.CategoryId,
+                    Name = $"Categoria {product.CategoryId} (carregue para atualizar o nome)"
+                });
+            }
             _productCategory.SelectedIndex = index >= 0 ? index : 0;
             _productSubcategory.Items.Clear();
             _productSubcategory.Items.Add(new MercadoLivreCategory { Name = "Carregue a categoria para consultar subcategorias" });
@@ -422,7 +432,16 @@ public sealed partial class MainForm : Form
         _suspendProductCategoryEvents = true;
         _productSubcategory.Items.Clear();
         _productSubcategory.Items.Add(new MercadoLivreCategory { Name = "Sem subcategoria" });
-        _productSubcategory.SelectedIndex = 0;
+        if (!string.IsNullOrWhiteSpace(wantedSubcategory))
+        {
+            _productSubcategory.Items.Add(new MercadoLivreCategory
+            {
+                Id = wantedSubcategory,
+                Name = _current?.Category ?? $"Subcategoria {wantedSubcategory}"
+            });
+            _productSubcategory.SelectedIndex = 1;
+        }
+        else _productSubcategory.SelectedIndex = 0;
         _suspendProductCategoryEvents = false;
         if (category is null || string.IsNullOrEmpty(category.Id)) return;
         try
@@ -433,7 +452,14 @@ public sealed partial class MainForm : Form
             if (!string.Equals((_productCategory.SelectedItem as MercadoLivreCategory)?.Id,
                 category.Id, StringComparison.Ordinal)) return;
             _suspendProductCategoryEvents = true;
-            foreach (var child in response.Categories) _productSubcategory.Items.Add(child);
+            foreach (var child in response.Categories)
+            {
+                var existing = _productSubcategory.Items.Cast<MercadoLivreCategory>()
+                    .FirstOrDefault(x => !string.IsNullOrWhiteSpace(x.Id) && x.Id == child.Id);
+                if (existing is not null) existing.Name = child.Name;
+                else _productSubcategory.Items.Add(child);
+            }
+            _productSubcategory.Refresh();
             var index = _productSubcategory.Items.Cast<MercadoLivreCategory>().ToList()
                 .FindIndex(x => x.Id == wantedSubcategory && wantedSubcategory.Length > 0);
             _productSubcategory.SelectedIndex = index >= 0 ? index : 0;

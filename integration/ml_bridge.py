@@ -74,6 +74,120 @@ def official_suggestions(query: str, token: str, category: str) -> dict:
                 "warning": "Busca de anúncios bloqueada (401/403). Resultados são produtos do catálogo, não anúncios ou links comissionados."}
 
 
+
+def official_details(kind: str, identifier: str, name: str,
+                     fallback_category: str, token: str) -> dict:
+    """Enriquece seleção usando SOMENTE metadados dos endpoints oficiais."""
+    from automation.ml_discovery import _api_get, DiscoveryError
+
+    if kind == "listing":
+        if not re.fullmatch(r"MLB[0-9]{6,18}", identifier):
+            raise ValueError("ID de anúncio inválido.")
+    elif kind == "catalog":
+        if not re.fullmatch(r"MLB[A-Z0-9]{3,25}", identifier):
+            raise ValueError("ID de produto de catálogo inválido.")
+    else:
+        raise ValueError("Tipo de sugestão não permitido.")
+
+    category = fallback_category if re.fullmatch(r"MLB[0-9]{2,12}", fallback_category) else ""
+    category_source = "anuncio" if category and kind == "listing" else ""
+    description = ""
+    description_source = ""
+    warnings = []
+
+    if kind == "listing":
+        try:
+            item = _api_get("/items/" + identifier, token=token)
+            if isinstance(item, dict) and str(item.get("id")) == identifier:
+                found = str(item.get("category_id") or "")
+                if re.fullmatch(r"MLB[0-9]{2,12}", found):
+                    category, category_source = found, "anuncio"
+        except DiscoveryError:
+            warnings.append("Dados adicionais do anúncio indisponíveis.")
+        try:
+            details = _api_get("/items/" + identifier + "/description", token=token)
+            if isinstance(details, dict):
+                plain = details.get("plain_text")
+                if isinstance(plain, str) and plain.strip():
+                    description = plain.strip()[:3000]
+                    description_source = "descricao_do_anuncio"
+        except DiscoveryError:
+            warnings.append("Descrição do anúncio indisponível na API.")
+    else:
+        try:
+            product = _api_get("/products/" + identifier, token=token)
+            if isinstance(product, dict) and str(product.get("id")) == identifier:
+                found = str(product.get("category_id") or "")
+                if re.fullmatch(r"MLB[0-9]{2,12}", found):
+                    category, category_source = found, "catalogo"
+                # Aceitar texto de descrição somente quando realmente existir no produto.
+                for field in ("short_description", "description"):
+                    value = product.get(field)
+                    if isinstance(value, dict):
+                        value = value.get("content") or value.get("plain_text")
+                    if isinstance(value, str) and value.strip():
+                        description = value.strip()[:3000]
+                        description_source = "resumo_catalogo"
+                        break
+                if not description:
+                    # Ficha técnica: somente fatos explicitamente fornecidos pela API.
+                    # NÃO equivale ao texto escrito pelo vendedor do anúncio.
+                    features = []
+                    for attribute in (product.get("attributes") or [])[:18]:
+                        if not isinstance(attribute, dict):
+                            continue
+                        label, value = attribute.get("name"), attribute.get("value_name")
+                        if not isinstance(value, str) or not value.strip():
+                            values = attribute.get("values") or []
+                            if values and isinstance(values[0], dict):
+                                value = values[0].get("name")
+                        if isinstance(label, str) and isinstance(value, str):
+                            label, value = label.strip(), value.strip()
+                            if label and value and len(label) <= 90 and len(value) <= 200:
+                                features.append(f"{label}: {value}")
+                    if features:
+                        description = "Ficha técnica do catálogo Mercado Livre:\n" + "\n".join(features)
+                        description = description[:3000]
+                        description_source = "ficha_tecnica_catalogo"
+        except DiscoveryError:
+            warnings.append("Detalhes do catálogo indisponíveis.")
+        if not category and 3 <= len(name.strip()) <= 180:
+            try:
+                predictions = _api_get("/sites/MLB/domain_discovery/search",
+                                       {"q": name.strip(), "limit": 3}, token=token)
+                if isinstance(predictions, list):
+                    valid = [str(p.get("category_id") or "") for p in predictions
+                             if isinstance(p, dict) and re.fullmatch(
+                                 r"MLB[0-9]{2,12}", str(p.get("category_id") or ""))]
+                    if valid:
+                        category, category_source = valid[0], "predicao"
+                        warnings.append("Categoria sugerida pelo preditor; confirme antes de salvar.")
+            except DiscoveryError:
+                warnings.append("Preditor de categorias indisponível.")
+
+    path = []
+    if category:
+        try:
+            raw = _api_get("/categories/" + category, token=token)
+            if isinstance(raw, dict):
+                path = [{"id": c["id"], "name": c["name"].strip()}
+                        for c in raw.get("path_from_root") or []
+                        if isinstance(c, dict)
+                        and re.fullmatch(r"MLB[0-9]{2,12}", str(c.get("id") or ""))
+                        and isinstance(c.get("name"), str) and c["name"].strip()]
+        except DiscoveryError:
+            warnings.append("Hierarquia de categorias indisponível.")
+    if kind == "catalog" and not description:
+        warnings.append("O catálogo não forneceu descrição textual; não foi criada descrição artificial.")
+    return {"ok": True, "origin": "detalhes_oficiais",
+            "suggestions": [{
+                "id": identifier, "name": name, "kind": kind, "category_id": category,
+                "category_source": category_source, "description": description,
+                "description_source": description_source, "verified": bool(category or description)
+            }],
+            "categories": path, "warning": " ".join(warnings)}
+
+
 def official_preview(url: str, token: str) -> dict:
     """Pré-preenchimento sem ingestão, sem gravação da fila e sem download de imagens."""
     from automation.ml_ingest import get_product_metadata
@@ -96,11 +210,12 @@ def official_preview(url: str, token: str) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", required=True)
-    parser.add_argument("--action", choices=["categories", "children", "search", "ingest", "manual", "oauth_status", "suggest", "preview_url", "category_path"], required=True)
+    parser.add_argument("--action", choices=["categories", "children", "search", "ingest", "manual", "oauth_status", "suggest", "preview_url", "category_path", "enrich"], required=True)
     parser.add_argument("--category", default="")
     parser.add_argument("--query", default="")
     parser.add_argument("--url", default="")
     parser.add_argument("--item-id", default="")
+    parser.add_argument("--kind", default="")
     args = parser.parse_args()
 
     root = Path(args.root).resolve()
@@ -138,6 +253,8 @@ def main() -> int:
             and isinstance(row.get("name"), str) and row["name"].strip()
         ]
         return emit({"ok": True, "origin": "api", "categories": categories})
+    if args.action == "enrich":
+        return emit(official_details(args.kind, args.item_id, args.query.strip(), args.category, token))
     if args.action == "suggest":
         return emit(official_suggestions(args.query.strip(), token, args.category))
     if args.action == "preview_url":

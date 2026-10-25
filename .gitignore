@@ -19,4 +19,8 @@ obj/
 .idea/
 EdgeDebugProfile/
 appsettings.Development.json
+# Artefatos Python gerados pelos testes
+__pycache__/
+*.py[cod]
+
 .DS_Store

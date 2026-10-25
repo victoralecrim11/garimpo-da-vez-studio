@@ -29,7 +29,7 @@ public sealed partial class MainForm
         _productNameSuggestions.Visible = false;
 
         _productNameStatus.Width = 460;
-        _productNameStatus.Height = 45;
+        _productNameStatus.Height = 75;
         _productNameStatus.ForeColor = Muted;
         _productNameStatus.Text = "Digite pelo menos 3 caracteres. Selecione uma sugestão ou continue preenchendo manualmente.";
 
@@ -191,42 +191,64 @@ public sealed partial class MainForm
         _remoteNameSuggestions.Clear();
         _productNameSuggestions.Visible = false;
         _productNameStatus.Text = suggestion.Kind == "catalog"
-            ? "Título preenchido a partir do catálogo. Falta escolher um anúncio real e gerar o link de afiliado."
-            : "Nome, ID e URL preenchidos. Confira categoria, descrição e fotografia antes de salvar.";
+            ? "Consultando classificação e descrição da referência de catálogo..."
+            : "Consultando categoria e descrição reais do anúncio...";
         _ = ShowProductSuggestionPreviewAsync(suggestion.Thumbnail);
-        if (suggestion.Kind == "listing")
-        {
-            _ = SelectOfficialCategoryAsync(suggestion.CategoryId, _current?.Id ?? "");
-            if (ProductInputValidator.IsMercadoLivreListing(suggestion.Permalink, required: true))
-                _ = CompleteListingDescriptionAsync(suggestion.Permalink, _current?.Id ?? "");
-        }
+        _ = EnrichSelectedProductAsync(suggestion, _current?.Id ?? "");
     }
 
-    private async Task CompleteListingDescriptionAsync(string url, string productId)
+    private async Task EnrichSelectedProductAsync(ProductNameSuggestion suggestion, string productId)
     {
         var root = MercadoLivreBridgeService.SavedRepository;
-        if (!MercadoLivreBridgeService.ValidRepository(root)) return;
+        if (!MercadoLivreBridgeService.ValidRepository(root))
+        {
+            _productNameStatus.Text = "Configure a pasta Python para consultar os detalhes oficiais.";
+            return;
+        }
         try
         {
-            var result = await MercadoLivreBridgeService.PreviewByUrlAsync(root, url);
-            if (_current?.Id != productId) return;
-            var details = result.Suggestions.FirstOrDefault();
+            var response = await MercadoLivreBridgeService.EnrichSuggestionAsync(root, suggestion);
+            // Resultados antigos nunca alteram outro produto ou o nome que já foi editado.
+            if (_current?.Id != productId ||
+                _name.Text != (suggestion.Name.Length > 180 ? suggestion.Name[..180] : suggestion.Name))
+                return;
+            var details = response.Suggestions.FirstOrDefault();
             if (details is null) return;
-            var description = details.Description.Trim();
-            // O resumo genérico padrão do verificador não substitui uma descrição real.
-            if (!string.IsNullOrWhiteSpace(description) &&
-                !description.StartsWith("Confira detalhes e especificações", StringComparison.OrdinalIgnoreCase) &&
+            var descriptionAdded = false;
+            if (!string.IsNullOrWhiteSpace(details.Description) &&
                 string.IsNullOrWhiteSpace(_description.Text))
             {
-                _description.Text = description;
-                _productNameStatus.Text += details.Verified
-                    ? " Descrição obtida da API; confira as informações."
-                    : " Descrição pública não verificada: confira antes de salvar.";
+                _description.Text = details.Description[..Math.Min(details.Description.Length, _description.MaxLength)];
+                descriptionAdded = true;
             }
+            // Evita sobrescrever escolha manual feita enquanto os detalhes eram consultados.
+            if (response.Categories.Count > 0 &&
+                string.IsNullOrWhiteSpace((_productCategory.SelectedItem as MercadoLivreCategory)?.Id))
+                ApplyOfficialCategoryPath(response.Categories, productId, details.CategorySource);
+
+            _productNameStatus.Text = details.CategorySource == "predicao"
+                ? "Categoria sugerida por nome (confirme antes de salvar)."
+                : response.Categories.Count > 0
+                    ? "Categoria oficial recuperada da API."
+                    : "Categoria não confirmada; escolha manualmente.";
+            _productNameStatus.Text += descriptionAdded
+                ? details.DescriptionSource switch
+                {
+                    "descricao_do_anuncio" => " Descrição real do anúncio preenchida.",
+                    "ficha_tecnica_catalogo" => " Ficha técnica oficial preenchida (não é descrição do vendedor).",
+                    _ => " Texto oficial do catálogo preenchido (não é descrição do vendedor)."
+                }
+                : " Descrição textual não disponível ou já preenchida.";
+            if (suggestion.Kind == "catalog")
+                _productNameStatus.Text += " A referência de catálogo não é anúncio com link de afiliado.";
+            if (!string.IsNullOrWhiteSpace(response.Warning))
+                _footer.Text = response.Warning;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // Metadados opcionais; o cadastro selecionado continua editável.
+            if (_current?.Id == productId)
+                _productNameStatus.Text = "Detalhes oficiais indisponíveis: " + ex.Message +
+                    " Revise categoria e descrição manualmente.";
         }
     }
 
@@ -239,39 +261,51 @@ public sealed partial class MainForm
         {
             var result = await MercadoLivreBridgeService.CategoryPathAsync(root, categoryId);
             if (_current?.Id != productId || result.Categories.Count == 0) return;
-            var first = result.Categories[0];
-            var last = result.Categories[^1];
-            _suspendProductCategoryEvents = true;
-            try
-            {
-                var category = _productCategory.Items.Cast<MercadoLivreCategory>()
-                    .FirstOrDefault(x => x.Id == first.Id);
-                if (category is null)
-                {
-                    category = first;
-                    _productCategory.Items.Add(category);
-                }
-                _productCategory.SelectedItem = category;
-                _productSubcategory.Items.Clear();
-                _productSubcategory.Items.Add(new MercadoLivreCategory { Name = "Sem subcategoria" });
-                if (last.Id != first.Id)
-                {
-                    _productSubcategory.Items.Add(last);
-                    _productSubcategory.SelectedIndex = 1;
-                }
-                else _productSubcategory.SelectedIndex = 0;
-                _category.Text = last.Name;
-                _current.CategoryId = first.Id;
-                _current.SubcategoryId = last.Id != first.Id ? last.Id : "";
-                FillNicheSuggestions(_nicheOptions.Text);
-                _productNameStatus.Text += " Categoria oficial identificada: " + last.Name + ".";
-            }
-            finally { _suspendProductCategoryEvents = false; }
+            ApplyOfficialCategoryPath(result.Categories, productId, "anuncio");
         }
         catch (Exception)
         {
             // Se a categoria estiver restrita, é possível escolher manualmente no formulário.
         }
+    }
+
+    private void ApplyOfficialCategoryPath(IReadOnlyList<MercadoLivreCategory> path,
+        string productId, string source)
+    {
+        if (_current?.Id != productId || path.Count == 0) return;
+        var first = path[0];
+        var last = path[^1];
+        _suspendProductCategoryEvents = true;
+        try
+        {
+            var category = _productCategory.Items.Cast<MercadoLivreCategory>()
+                .FirstOrDefault(x => x.Id == first.Id);
+            if (category is null)
+            {
+                category = new MercadoLivreCategory { Id = first.Id, Name = first.Name };
+                _productCategory.Items.Add(category);
+            }
+            _productCategory.SelectedItem = category;
+            _productSubcategory.Items.Clear();
+            _productSubcategory.Items.Add(new MercadoLivreCategory { Name = "Sem subcategoria" });
+            if (last.Id != first.Id)
+            {
+                _productSubcategory.Items.Add(new MercadoLivreCategory
+                {
+                    Id = last.Id,
+                    Name = string.Join(" > ", path.Skip(1).Select(c => c.Name))
+                });
+                _productSubcategory.SelectedIndex = 1;
+            }
+            else _productSubcategory.SelectedIndex = 0;
+            _category.Text = string.Join(" > ", path.Select(c => c.Name));
+            _current.CategoryId = first.Id;
+            _current.SubcategoryId = last.Id != first.Id ? last.Id : "";
+            FillNicheSuggestions(_nicheOptions.Text);
+            if (source == "predicao")
+                _footer.Text = "Classificação sugerida pelo preditor, confira o caminho antes de salvar.";
+        }
+        finally { _suspendProductCategoryEvents = false; }
     }
 
     private async Task PreviewProductUrlAsync()
@@ -324,16 +358,15 @@ public sealed partial class MainForm
         _source.Text = "Mercado Livre";
         _listingUrl.Text = originalUrl;
         if (!string.IsNullOrWhiteSpace(suggestion.Id)) _externalId.Text = suggestion.Id;
-        if (!string.IsNullOrWhiteSpace(suggestion.Description) &&
-            (_description.Text.Trim().Length == 0))
-            _description.Text = suggestion.Description;
+        // Prévia de URL pode conter resumo genérico/página não verificada.
+        // A descrição real é consultada pelo ID oficial na seleção.
         if (_current is not null && !string.IsNullOrWhiteSpace(suggestion.CategoryId))
             _current.SubcategoryId = suggestion.CategoryId;
         _pinTitle.Text = _name.Text.Length > 100 ? _name.Text[..100] : _name.Text;
         _remoteNameSuggestions.Clear();
         _productNameSuggestions.Visible = false;
         _ = ShowProductSuggestionPreviewAsync(suggestion.Thumbnail);
-        _ = SelectOfficialCategoryAsync(suggestion.CategoryId, _current?.Id ?? "");
+        _ = EnrichSelectedProductAsync(suggestion, _current?.Id ?? "");
     }
 
     private async Task ShowProductSuggestionPreviewAsync(string urlString)

@@ -38,6 +38,26 @@ def _api_get(path, params=None, token=""):
         return {"path_from_root": [
             {"id":"MLB456","name":"Casa"},
             {"id":"MLB123","name":"Quadros decorativos"}]}
+    if path == "/items/MLB123456789":
+        return {"id":"MLB123456789", "category_id":"MLB123"}
+    if path == "/items/MLB123456789/description":
+        return {"plain_text":"Luminária LED com estrutura metálica, conforme anúncio."}
+    if path == "/items/MLB987654321":
+        return {"id":"MLB987654321", "category_id":"MLB123"}
+    if path == "/items/MLB987654321/description":
+        raise DiscoveryError("HTTP 403")
+    if path == "/products/MLBU300001":
+        return {"id":"MLBU300001", "category_id":"MLB123",
+                "short_description":{"type":"text","content":"Luminária de catálogo com iluminação ajustável."}}
+    if path == "/products/MLBU300002":
+        return {"id":"MLBU300002", "attributes":[{"name":"Cor","value_name":"Branco"},
+                            {"name":"Material","value_name":"Metal"}]}
+    if path == "/products/MLBU300003":
+        return {"id":"MLBU300003", "attributes":[]}
+    if path == "/products/MLBU300004":
+        raise DiscoveryError("HTTP 403")
+    if path == "/sites/MLB/domain_discovery/search":
+        return [{"category_id":"MLB123", "category_name":"Quadros decorativos"}]
     assert path == "/products/search"
     if params["q"] == "ambos403":
         raise DiscoveryError("HTTP 403")
@@ -172,6 +192,64 @@ if __name__ == "__main__":
 
     def test_category_path_refuses_invalid_identifier(self):
         code, obj = self.run_bridge("category_path", "--category", "TESTE123")
+        self.assertNotEqual(code, 0)
+        self.assertFalse(obj["ok"])
+
+    def test_enrich_listing_gets_official_description_and_category(self):
+        code, obj = self.run_bridge(
+            "enrich", "--kind", "listing", "--item-id", "MLB123456789",
+            "--query", "Luminária", "--category", "")
+        self.assertEqual(code, 0)
+        row = obj["suggestions"][0]
+        self.assertEqual(row["description_source"], "descricao_do_anuncio")
+        self.assertIn("estrutura metálica", row["description"])
+        self.assertEqual(row["category_source"], "anuncio")
+        self.assertEqual(obj["categories"][-1]["id"], "MLB123")
+        self.assertFalse((self.root / "automation" / "imported.txt").exists())
+
+    def test_enrich_catalog_gets_real_text_without_listing(self):
+        code, obj = self.run_bridge(
+            "enrich", "--kind", "catalog", "--item-id", "MLBU300001",
+            "--query", "Luminária", "--category", "")
+        self.assertEqual(code, 0)
+        row = obj["suggestions"][0]
+        self.assertEqual(row["kind"], "catalog")
+        self.assertEqual(row["description_source"], "resumo_catalogo")
+        self.assertEqual(row["description"], "Luminária de catálogo com iluminação ajustável.")
+        self.assertEqual(obj["categories"][0]["name"], "Casa")
+        self.assertNotIn("permalink", row)
+
+    def test_enrich_catalog_ficha_tecnica_uses_only_api_attributes(self):
+        code, obj = self.run_bridge(
+            "enrich", "--kind", "catalog", "--item-id", "MLBU300002",
+            "--query", "Luminária", "--category", "")
+        self.assertEqual(code, 0)
+        row = obj["suggestions"][0]
+        self.assertEqual(row["description_source"], "ficha_tecnica_catalogo")
+        self.assertIn("Cor: Branco", row["description"])
+        self.assertIn("Material: Metal", row["description"])
+        self.assertEqual(row["category_source"], "predicao")
+
+    def test_enrich_catalog_without_description_does_not_fabricate(self):
+        code, obj = self.run_bridge(
+            "enrich", "--kind", "catalog", "--item-id", "MLBU300003",
+            "--query", "Luminária", "--category", "")
+        self.assertEqual(code, 0)
+        self.assertEqual(obj["suggestions"][0]["description"], "")
+        self.assertIn("não forneceu descrição", obj["warning"])
+
+    def test_enrich_listing_forbidden_description_remains_empty(self):
+        code, obj = self.run_bridge(
+            "enrich", "--kind", "listing", "--item-id", "MLB987654321",
+            "--query", "Luminária", "--category", "")
+        self.assertEqual(code, 0)
+        self.assertEqual(obj["suggestions"][0]["description"], "")
+        self.assertIn("indisponível", obj["warning"])
+
+    def test_enrich_rejects_invalid_suggestion_type(self):
+        code, obj = self.run_bridge(
+            "enrich", "--kind", "local", "--item-id", "MLBU300001",
+            "--query", "Luminária", "--category", "")
         self.assertNotEqual(code, 0)
         self.assertFalse(obj["ok"])
 
