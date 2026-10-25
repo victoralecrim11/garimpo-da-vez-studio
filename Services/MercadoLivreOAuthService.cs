@@ -48,7 +48,7 @@ public static class MercadoLivreOAuthService
 
         Directory.CreateDirectory(AppPaths.Root);
         File.WriteAllText(AppIdFile, clientId); // App ID público; nunca guardar Client Secret.
-        Process.Start(start) ??
+        _ = Process.Start(start) ??
             throw new InvalidOperationException("Não foi possível abrir o PowerShell.");
     }
 }
