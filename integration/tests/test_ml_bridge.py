@@ -103,7 +103,9 @@ if __name__ == "__main__":
         code, obj = self.run_bridge("search", "--query", "erro403")
         self.assertNotEqual(code, 0)
         self.assertFalse(obj["ok"])
-        self.assertEqual(obj["error"], "API oficial Mercado Livre retornou acesso negado (401/403); não há contorno.")
+        self.assertIn("HTTP 403", obj["error"])
+        self.assertIn("permissão da aplicação", obj["error"])
+        self.assertIn("URL real", obj["error"])
         self.assertNotIn("items", obj)
 
     def test_manual_url_import_returns_verified_queue_fields(self):
