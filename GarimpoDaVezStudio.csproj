@@ -11,6 +11,9 @@
     <RootNamespace>GarimpoDaVezStudio</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Remove="Tests\**\*.cs" />
+  </ItemGroup>
+  <ItemGroup>
     <Content Include="prompts\pinterest-template.txt" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="integration\ml_bridge.py" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
