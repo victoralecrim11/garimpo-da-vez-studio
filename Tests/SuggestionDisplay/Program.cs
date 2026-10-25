@@ -40,7 +40,8 @@ internal static class Program
         }
 
         var fromPython = JsonSerializer.Deserialize<ProductNameSuggestion>(
-            """{"id":"MLBU1234","name":"Luminária de catálogo","kind":"catalog"}""");
+            """{"id":"MLBU1234","name":"Luminária de catálogo","kind":"catalog"}""",
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         if (fromPython?.ToString() != "Referência de catálogo · Luminária de catálogo")
         {
             Console.Error.WriteLine("Falha: a desserialização JSON não preservou o texto exibido.");
