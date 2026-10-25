@@ -27,7 +27,10 @@ public sealed class MainForm : Form
     private readonly TextBox _source = TextInput();
     private readonly TextBox _externalId = TextInput();
     private readonly TextBox _category = TextInput();
-    private readonly TextBox _niche = TextInput();
+    private readonly ComboBox _nicheOptions = new();
+    private readonly ComboBox _productCategory = new();
+    private readonly ComboBox _productSubcategory = new();
+    private bool _suspendProductCategoryEvents;
     private readonly TextBox _description = TextInput(multiline: true);
     private readonly TextBox _affiliateUrl = TextInput();
     private readonly TextBox _listingUrl = TextInput();
@@ -36,6 +39,13 @@ public sealed class MainForm : Form
     private readonly ComboBox _mlCategories = new();
     private readonly ComboBox _mlChildren = new();
     private readonly DataGridView _mlResults = new();
+    private readonly PictureBox _mlPreview = Picture();
+    private readonly TextBox _mlManualUrl = TextInput();
+    private int _mlPreviewGeneration;
+    private static readonly HttpClient ThumbnailClient = new(new HttpClientHandler { AllowAutoRedirect = false })
+    {
+        Timeout = TimeSpan.FromSeconds(12)
+    };
     private readonly CheckBox _mlSyncQueue = new();
     private readonly Label _mlStatus = new();
     private bool _mlLoadingCategories;
@@ -190,8 +200,11 @@ public sealed class MainForm : Form
         form.Controls.Add(Field("Nome do produto *", _name));
         form.Controls.Add(Field("Fonte", _source));
         form.Controls.Add(Field("ID externo / SKU (opcional)", _externalId));
-        form.Controls.Add(Field("Categoria", _category));
-        form.Controls.Add(Field("Nicho", _niche));
+        SetupProductCategoryFields();
+        form.Controls.Add(Field("Categoria oficial do Mercado Livre", _productCategory));
+        form.Controls.Add(Field("Subcategoria oficial (opcional)", _productSubcategory));
+        form.Controls.Add(ButtonOf("Carregar categorias oficiais", async () => await LoadMlCategoriesAsync(), false, 260));
+        form.Controls.Add(Field("Nicho editorial (sugestões editáveis)", _nicheOptions));
         form.Controls.Add(Field("Descrição real do produto", _description, 132));
         form.Controls.Add(Field("Link oficial do afiliado", _affiliateUrl));
         _listingUrl.ReadOnly = true;
@@ -204,9 +217,13 @@ public sealed class MainForm : Form
         cols.Controls.Add(right, 1, 0);
         right.Controls.Add(Section("IMAGEM ORIGINAL"));
         _originalPreview.Size = new Size(350, 420);
+        _originalPreview.Cursor = Cursors.Hand;
+        _originalPreview.Click += (_, _) => ImportOriginal();
         right.Controls.Add(_originalPreview);
         _originalPath.ReadOnly = true;
-        right.Controls.Add(Field("Arquivo salvo", _originalPath));
+        _originalPath.Cursor = Cursors.Hand;
+        _originalPath.Click += (_, _) => ImportOriginal();
+        right.Controls.Add(Field("Arquivo salvo (clique para escolher outra imagem)", _originalPath));
         right.Controls.Add(Note("O ID interno é criado automaticamente. O link de afiliado deve vir da ferramenta oficial da plataforma."));
         return page;
     }
@@ -264,7 +281,20 @@ public sealed class MainForm : Form
         _mlResults.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Categoria", DataPropertyName = "CategoryId", Width = 125 });
         _mlResults.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Preço (informativo)", DataPropertyName = "Price", Width = 135, DefaultCellStyle = new DataGridViewCellStyle { Format = "N2" } });
         _mlResults.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Moeda", DataPropertyName = "Currency", Width = 80 });
-        panel.Controls.Add(_mlResults);
+        _mlResults.Width = 655;
+        _mlResults.Height = 260;
+        _mlResults.SelectionChanged += async (_, _) => await ShowMlPreviewAsync();
+        var gridWithPreview = new FlowLayoutPanel {
+            Width = 1000, Height = 280, FlowDirection = FlowDirection.LeftToRight, WrapContents = false, BackColor = Surface
+        };
+        gridWithPreview.Controls.Add(_mlResults);
+        _mlPreview.Width = 280;
+        _mlPreview.Height = 260;
+        _mlPreview.SizeMode = PictureBoxSizeMode.Zoom;
+        gridWithPreview.Controls.Add(_mlPreview);
+        panel.Controls.Add(gridWithPreview);
+        panel.Controls.Add(Field("Busca bloqueada (401/403)? Cole a URL REAL do anúncio", _mlManualUrl));
+        panel.Controls.Add(ButtonOf("Importar diretamente pela URL", async () => await ImportMlUrlAsync(), false, 300));
 
         _mlSyncQueue.Text = "Também registrar na fila Python (pins.json / Excel), sem aprovar imagem ou link";
         _mlSyncQueue.Checked = true;
@@ -319,6 +349,7 @@ public sealed class MainForm : Form
             foreach (var category in result.Categories) _mlCategories.Items.Add(category);
             _mlCategories.SelectedIndex = 0;
             _mlLoadingCategories = false;
+            FillProductCategories(result.Categories);
             _mlStatus.Text = result.Categories.Count + " categorias carregadas (" + result.Origin + ").";
         }
         catch (Exception ex) { _mlStatus.Text = ex.Message; ShowError(ex); }
@@ -368,7 +399,8 @@ public sealed class MainForm : Form
         catch (Exception ex)
         {
             _mlResults.DataSource = null;
-            _mlStatus.Text = ex.Message;
+            FileStudioService.ShowImage(_mlPreview, null);
+            _mlStatus.Text = ex.Message + " Use a URL oficial do anúncio no campo abaixo se a busca estiver bloqueada.";
             ShowError(ex);
         }
         finally { EndMlOperation(); }
@@ -417,7 +449,11 @@ public sealed class MainForm : Form
                 Source = "Mercado Livre",
                 ExternalId = selected.Id,
                 Name = selected.Title,
-                Category = selected.CategoryId,
+                Category = (_mlChildren.SelectedItem as MercadoLivreCategory)?.Id == selected.CategoryId
+                    ? (_mlChildren.SelectedItem as MercadoLivreCategory)!.Name
+                    : (_mlCategories.SelectedItem as MercadoLivreCategory)?.Name ?? selected.CategoryId,
+                CategoryId = (_mlCategories.SelectedItem as MercadoLivreCategory)?.Id ?? "",
+                SubcategoryId = selected.CategoryId,
                 ListingUrl = selected.Permalink
             };
             if (existing is null)
@@ -614,7 +650,8 @@ public sealed class MainForm : Form
         _source.Text = p.Source;
         _externalId.Text = p.ExternalId;
         _category.Text = p.Category;
-        _niche.Text = p.Niche;
+        SelectSavedProductCategory(p);
+        FillNicheSuggestions(p.Niche);
         _description.Text = p.Description;
         _affiliateUrl.Text = p.AffiliateUrl;
         _listingUrl.Text = p.ListingUrl;
@@ -647,7 +684,14 @@ public sealed class MainForm : Form
     private void LoadProductFieldsForNew(Product p)
     {
         _name.Clear(); _source.Text = p.Source; _externalId.Clear();
-        _category.Clear(); _niche.Clear(); _description.Clear();
+        _category.Clear();
+        _suspendProductCategoryEvents = true;
+        _productCategory.SelectedIndex = _productCategory.Items.Count > 0 ? 0 : -1;
+        _productSubcategory.Items.Clear();
+        _productSubcategory.Items.Add(new MercadoLivreCategory { Name = "Selecione primeiro a categoria" });
+        _productSubcategory.SelectedIndex = 0;
+        _suspendProductCategoryEvents = false;
+        FillNicheSuggestions(""); _description.Clear();
         _affiliateUrl.Clear(); _listingUrl.Clear(); _originalPath.Clear();
         FileStudioService.ShowImage(_originalPreview, null);
         FileStudioService.ShowImage(_studioPreview, null);
@@ -677,8 +721,17 @@ public sealed class MainForm : Form
         _current.Name = _name.Text.Trim();
         _current.Source = _source.Text.Trim();
         _current.ExternalId = _externalId.Text.Trim();
-        _current.Category = _category.Text.Trim();
-        _current.Niche = _niche.Text.Trim();
+        var official = _productCategory.SelectedItem as MercadoLivreCategory;
+        var officialChild = _productSubcategory.SelectedItem as MercadoLivreCategory;
+        if (official is not null && !string.IsNullOrWhiteSpace(official.Id))
+        {
+            _current.CategoryId = official.Id;
+            _current.SubcategoryId = officialChild?.Id ?? "";
+            _current.Category = !string.IsNullOrWhiteSpace(officialChild?.Id)
+                ? officialChild.Name : official.Name;
+        }
+        else _current.Category = _category.Text.Trim();
+        _current.Niche = _nicheOptions.Text.Trim();
         _current.Description = _description.Text.Trim();
         _current.AffiliateUrl = _affiliateUrl.Text.Trim();
         _repository.SaveProduct(_current);
