@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import time
 from pathlib import Path
 import re
 import subprocess
@@ -17,7 +18,7 @@ def emit(data: dict) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", required=True)
-    parser.add_argument("--action", choices=["categories", "children", "search", "ingest", "manual"], required=True)
+    parser.add_argument("--action", choices=["categories", "children", "search", "ingest", "manual", "oauth_status"], required=True)
     parser.add_argument("--category", default="")
     parser.add_argument("--query", default="")
     parser.add_argument("--url", default="")
@@ -28,6 +29,17 @@ def main() -> int:
     if not (root / "automation" / "ml_discovery.py").is_file():
         raise ValueError("Pasta Python inválida: automation/ml_discovery.py ausente")
     sys.path.insert(0, str(root))
+    if args.action == "oauth_status":
+        # Nunca encaminhar token, client_secret, código nem refresh_token ao WinForms.
+        from automation.ml_oauth import read_credentials, EXPIRY_SKEW_SECONDS
+        data = read_credentials()
+        if not data:
+            return emit({"ok": True, "authenticated": False,
+                         "token_valid": False, "origin": "cofre_sistema"})
+        expires_at = int(data.get("expires_at") or 0)
+        return emit({"ok": True, "authenticated": True,
+                     "token_valid": expires_at > time.time() + EXPIRY_SKEW_SECONDS,
+                     "origin": "cofre_sistema"})
     from automation.ml_discovery import (
         children_of, read_token, root_categories, search_listings
     )
