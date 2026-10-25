@@ -23,7 +23,9 @@ public sealed partial class MainForm
         _productNameSuggestions.ForeColor = Foreground;
         _productNameSuggestions.BorderStyle = BorderStyle.FixedSingle;
         _productNameSuggestions.Font = new Font("Segoe UI", 9f);
-        _productNameSuggestions.DisplayMember = nameof(ProductNameSuggestion.Display);
+        // Sem DataSource: a ListBox usa ProductNameSuggestion.ToString(), sem
+        // exibir o nome técnico da classe quando o binding é recriado.
+        _productNameSuggestions.DisplayMember = "";
         _productNameSuggestions.Visible = false;
 
         _productNameStatus.Width = 460;
@@ -86,10 +88,16 @@ public sealed partial class MainForm
                 }).ToList();
         matches.AddRange(_remoteNameSuggestions.Where(s =>
             !matches.Any(x => x.Id.Length > 0 && x.Id == s.Id && s.Kind == "listing")));
-        _productNameSuggestions.DataSource = null;
-        _productNameSuggestions.DataSource = matches;
-        _productNameSuggestions.SelectedIndex = -1;
-        _productNameSuggestions.Visible = matches.Count > 0;
+        _productNameSuggestions.BeginUpdate();
+        try
+        {
+            _productNameSuggestions.Items.Clear();
+            if (matches.Count > 0)
+                _productNameSuggestions.Items.AddRange(matches.Cast<object>().ToArray());
+            _productNameSuggestions.SelectedIndex = -1;
+            _productNameSuggestions.Visible = matches.Count > 0;
+        }
+        finally { _productNameSuggestions.EndUpdate(); }
     }
 
     private async Task SearchProductNameAsync(bool force)
