@@ -431,57 +431,116 @@ public sealed class MainForm : Form
         Process.Start(new ProcessStartInfo { FileName = selected.Permalink, UseShellExecute = true });
     }
 
+
     private async Task ImportMlSelectedAsync()
     {
         if (_mlBusy) return;
         var selected = SelectedMlListing();
         if (selected is null || !ValidMercadoLivreListing(selected))
         {
-            MessageBox.Show("Selecione um anúncio oficial válido para importar.");
+            MessageBox.Show("Selecione um anúncio oficial válido na tabela.");
+            return;
+        }
+        await ImportMlListingAsync(selected, alreadyInPythonQueue: false);
+    }
+
+    private async Task ImportMlUrlAsync()
+    {
+        if (_mlBusy) return;
+        var source = _mlManualUrl.Text.Trim();
+        if (!ValidOfficialProductUrl(source))
+        {
+            MessageBox.Show("Cole a URL HTTPS real do anúncio (mercadolivre.com.br ou meli.la).");
             return;
         }
         try
         {
             BeginMlOperation();
-            var existing = _repository.FindMercadoLivreItem(selected.Id);
+            MercadoLivreBridgeService.SaveRepository(_mlRoot.Text);
+            var response = await MercadoLivreBridgeService.IngestUrlAsync(_mlRoot.Text, source);
+            var selected = response.Items.FirstOrDefault();
+            if (selected is null || string.IsNullOrWhiteSpace(selected.Title))
+                throw new InvalidOperationException("O Python não retornou dados suficientes para cadastrar; revise a URL.");
+            EndMlOperation();
+            _mlResults.DataSource = null;
+            _mlResults.DataSource = new List<MercadoLivreListing> { selected };
+            await ImportMlListingAsync(selected, alreadyInPythonQueue: true);
+        }
+        catch (Exception ex)
+        {
+            _mlStatus.Text = "Falha na importação por URL: " + ex.Message;
+            ShowError(ex);
+        }
+        finally { EndMlOperation(); }
+    }
+
+    private static bool ValidOfficialProductUrl(string? source)
+    {
+        if (!Uri.TryCreate(source, UriKind.Absolute, out var uri) ||
+            uri.Scheme != Uri.UriSchemeHttps || uri.UserInfo.Length > 0 || !uri.IsDefaultPort)
+            return false;
+        var host = uri.IdnHost.ToLowerInvariant();
+        return host is "meli.la" or "mercadolivre.com.br" or "mercadolibre.com.br" ||
+            host.EndsWith(".mercadolivre.com.br", StringComparison.Ordinal) ||
+            host.EndsWith(".mercadolibre.com.br", StringComparison.Ordinal);
+    }
+
+    private async Task ImportMlListingAsync(MercadoLivreListing selected, bool alreadyInPythonQueue)
+    {
+        if (_mlBusy) return;
+        if (!ValidOfficialProductUrl(selected.Permalink))
+            throw new InvalidOperationException("URL oficial de anúncio inválida.");
+        try
+        {
+            BeginMlOperation();
+            var existing = (!string.IsNullOrWhiteSpace(selected.Id)
+                ? _repository.FindMercadoLivreItem(selected.Id) : null)
+                ?? _repository.GetProducts().FirstOrDefault(
+                    p => p.Source == "Mercado Livre" && p.ListingUrl == selected.Permalink);
+            var rootCategory = _mlCategories.SelectedItem as MercadoLivreCategory;
+            var childCategory = _mlChildren.SelectedItem as MercadoLivreCategory;
             var product = existing ?? new Product
             {
                 Source = "Mercado Livre",
                 ExternalId = selected.Id,
                 Name = selected.Title,
-                Category = (_mlChildren.SelectedItem as MercadoLivreCategory)?.Id == selected.CategoryId
-                    ? (_mlChildren.SelectedItem as MercadoLivreCategory)!.Name
-                    : (_mlCategories.SelectedItem as MercadoLivreCategory)?.Name ?? selected.CategoryId,
-                CategoryId = (_mlCategories.SelectedItem as MercadoLivreCategory)?.Id ?? "",
+                Category = childCategory?.Id == selected.CategoryId ? childCategory.Name
+                    : rootCategory is { Id.Length: > 0 } ? rootCategory.Name : selected.CategoryId,
+                CategoryId = rootCategory?.Id ?? "",
                 SubcategoryId = selected.CategoryId,
                 ListingUrl = selected.Permalink
             };
             if (existing is null)
             {
                 _repository.SaveProduct(product);
-                _repository.AddLog(product.Id, "Mercado Livre", "Anúncio importado pela busca oficial. Link de afiliado pendente.");
+                _repository.AddLog(product.Id, "Mercado Livre", "Anúncio importado; imagem e link de afiliado pendentes de revisão.");
             }
-            var queueStatus = "";
-            if (_mlSyncQueue.Checked)
+            var sync = alreadyInPythonQueue ? " Fila Python atualizada por URL." : "";
+            if (!alreadyInPythonQueue && _mlSyncQueue.Checked)
             {
                 try
                 {
                     await MercadoLivreBridgeService.IngestAsync(_mlRoot.Text, selected);
-                    _repository.AddLog(product.Id, "Fila Python", "Anúncio enviado ao garimpo.py para sincronizar fila e Excel.");
-                    queueStatus = " Fila Python sincronizada (verifique avisos do Excel).";
+                    _repository.AddLog(product.Id, "Fila Python", "Importado pela ponte; verificar sincronização Excel.");
+                    sync = " Fila Python atualizada; confira a planilha Excel.";
                 }
-                catch (Exception syncError)
+                catch (Exception ex)
                 {
-                    queueStatus = " Importado no SQLite, mas a fila Python falhou: " + syncError.Message;
+                    sync = " Importado no SQLite, mas fila Python falhou: " + ex.Message;
                 }
             }
             _search.Clear();
             ReloadProducts(product.Id);
             _tabs.SelectedIndex = 0;
-            _footer.Text = (existing is null ? "Anúncio importado." : "Anúncio já cadastrado; dados preservados.") + queueStatus;
-            MessageBox.Show(_footer.Text, "Garimpo Mercado Livre");
+            _footer.Text = (existing is null ? "Anúncio cadastrado." : "Anúncio já cadastrado; edição preservada.") + sync;
+            MessageBox.Show(_footer.Text + "\nA imagem original precisa ser escolhida de arquivo autorizado.",
+                "Garimpo Mercado Livre");
         }
-        catch (Exception ex) { _mlStatus.Text = ex.Message; ShowError(ex); }
+        catch (Exception ex)
+        {
+            _mlStatus.Text = ex.Message;
+            ShowError(ex);
+        }
         finally { EndMlOperation(); }
     }
 
