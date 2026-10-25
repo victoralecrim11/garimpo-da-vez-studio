@@ -29,3 +29,5 @@ jobs:
         run: dotnet build GarimpoDaVezStudio.csproj -c Release --no-restore
       - name: Validate product field types
         run: dotnet run --project Tests/InputValidation/InputValidationTests.csproj -c Release
+      - name: Verify product suggestion text in WinForms
+        run: dotnet run --project Tests/SuggestionDisplay/SuggestionDisplayTests.csproj -c Release
