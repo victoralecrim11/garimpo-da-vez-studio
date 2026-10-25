@@ -95,7 +95,7 @@ if __name__ == "__main__":
         sys.exit(main())
     except Exception as exc:
         message = str(exc)
-        match = re.search(r"HTTP\\s*(401|403)\\b", message)
+        match = re.search(r"HTTP\s*(401|403)\b", message)
         if match:
             code = match.group(1)
             reason = ("verifique a validade da sessão OAuth" if code == "401"
