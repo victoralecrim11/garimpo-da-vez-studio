@@ -19,6 +19,7 @@ public sealed class MercadoLivreListing
     [JsonPropertyName("category_id")]
     public string CategoryId { get; set; } = "";
     public string Permalink { get; set; } = "";
+    public string Thumbnail { get; set; } = "";
     public decimal? Price { get; set; }
     public string Currency { get; set; } = "";
 }
@@ -91,6 +92,9 @@ public static class MercadoLivreBridgeService
 
     public static Task<MercadoLivreResponse> IngestAsync(string root, MercadoLivreListing item) =>
         ExecuteAsync(root, "ingest", "--url", item.Permalink, "--item-id", item.Id);
+
+    public static Task<MercadoLivreResponse> IngestUrlAsync(string root, string url) =>
+        ExecuteAsync(root, "manual", "--url", url);
 
     private static async Task<MercadoLivreResponse> ExecuteAsync(string root, string action, params string[] arguments)
     {
