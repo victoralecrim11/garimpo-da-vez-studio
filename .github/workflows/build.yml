@@ -27,3 +27,5 @@ jobs:
         run: dotnet restore GarimpoDaVezStudio.csproj
       - name: Build
         run: dotnet build GarimpoDaVezStudio.csproj -c Release --no-restore
+      - name: Validate product field types
+        run: dotnet run --project Tests/InputValidation/InputValidationTests.csproj -c Release
