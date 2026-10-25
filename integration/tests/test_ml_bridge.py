@@ -33,7 +33,11 @@ def children_of(category_id, *, token):
 class DiscoveryError(ValueError):
     pass
 
-def _api_get(path, params, token):
+def _api_get(path, params=None, token=""):
+    if path == "/categories/MLB123":
+        return {"path_from_root": [
+            {"id":"MLB456","name":"Casa"},
+            {"id":"MLB123","name":"Quadros decorativos"}]}
     assert path == "/products/search"
     if params["q"] == "ambos403":
         raise DiscoveryError("HTTP 403")
@@ -158,6 +162,18 @@ if __name__ == "__main__":
         self.assertEqual(code, 0)
         self.assertEqual(obj["origin"], "indisponivel")
         self.assertEqual(obj["suggestions"], [])
+
+    def test_category_path_returns_official_hierarchy(self):
+        code, obj = self.run_bridge("category_path", "--category", "MLB123")
+        self.assertEqual(code, 0)
+        self.assertEqual(obj["origin"], "api")
+        self.assertEqual(obj["categories"][0]["name"], "Casa")
+        self.assertEqual(obj["categories"][-1]["id"], "MLB123")
+
+    def test_category_path_refuses_invalid_identifier(self):
+        code, obj = self.run_bridge("category_path", "--category", "TESTE123")
+        self.assertNotEqual(code, 0)
+        self.assertFalse(obj["ok"])
 
     def test_preview_by_url_does_not_write_to_python_queue(self):
         url = "https://www.mercadolivre.com.br/item/MLB123456789"
