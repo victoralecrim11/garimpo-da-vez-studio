@@ -17,7 +17,7 @@ def emit(data: dict) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", required=True)
-    parser.add_argument("--action", choices=["categories", "children", "search", "ingest"], required=True)
+    parser.add_argument("--action", choices=["categories", "children", "search", "ingest", "manual"], required=True)
     parser.add_argument("--category", default="")
     parser.add_argument("--query", default="")
     parser.add_argument("--url", default="")
@@ -43,12 +43,13 @@ def main() -> int:
         rows = search_listings(args.query, category_id=args.category,
                                limit=25, token=token)
         return emit({"ok": True, "items": rows, "origin": "mercadolivre_official_search"})
-    if not re.fullmatch(r"MLB[0-9]{6,18}", args.item_id):
-        raise ValueError("ID do anúncio inválido")
     from automation.ml_ingest import validate_url, extract_item_id
     validate_url(args.url)
-    if extract_item_id(args.url) != args.item_id:
-        raise ValueError("A URL do anúncio não corresponde ao ID selecionado")
+    if args.action == "ingest":
+        if not re.fullmatch(r"MLB[0-9]{6,18}", args.item_id):
+            raise ValueError("ID do anúncio inválido")
+        if extract_item_id(args.url) != args.item_id:
+            raise ValueError("A URL do anúncio não corresponde ao ID selecionado")
     # O CLI de origem mantém pins.json e sincroniza produtos.xlsx. Sem confirmar link ou direitos.
     result = subprocess.run(
         [sys.executable, str(root / "automation" / "garimpo.py"), "ingest-url", args.url],
@@ -57,6 +58,35 @@ def main() -> int:
     )
     if result.returncode != 0:
         raise ValueError("Falha ao sincronizar com a fila Python. Rode 'garimpo.py ingest-url' no terminal para diagnosticar.")
+    if args.action == "manual":
+        from automation.garimpo import load_store, DEFAULT_STORE
+        from urllib.parse import urlsplit
+        pin = next((x for x in load_store(DEFAULT_STORE).get("pins", {}).values()
+                    if x.get("source_url") == args.url), None)
+        if not pin:
+            raise ValueError("Produto importado, mas não localizado na fila Python")
+        image = pin.get("source_image_url") or ""
+        if image:
+            from automation.ml_ingest import validate_url as check_url
+            try:
+                check_url(image, image=True)
+            except ValueError:
+                image = ""
+        url = pin.get("resolved_url") or args.url
+        try:
+            validate_url(url)
+        except ValueError:
+            url = args.url
+        item = {
+            "id": pin.get("item_id") or "",
+            "title": pin.get("title") or "",
+            "category_id": pin.get("ml_category_id") or "",
+            "permalink": url,
+            "thumbnail": image,
+            "currency": "",
+            "price": None,
+        }
+        return emit({"ok": True, "origin": "url_manual", "items": [item]})
     return emit({"ok": True, "origin": "python_queue"})
 
 
