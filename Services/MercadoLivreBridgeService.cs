@@ -126,6 +126,9 @@ public static class MercadoLivreBridgeService
     public static Task<MercadoLivreResponse> PreviewByUrlAsync(string root, string url) =>
         ExecuteAsync(root, "preview_url", "--url", url);
 
+    public static Task<MercadoLivreResponse> CategoryPathAsync(string root, string categoryId) =>
+        ExecuteAsync(root, "category_path", "--category", categoryId);
+
     public static Task<MercadoLivreResponse> IngestAsync(string root, MercadoLivreListing item) =>
         ExecuteAsync(root, "ingest", "--url", item.Permalink, "--item-id", item.Id);
 
