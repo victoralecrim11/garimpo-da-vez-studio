@@ -1189,7 +1189,7 @@ public sealed class MainForm : Form
     {
         if (!SaveCurrent() || _current is null) return;
         if (!ProductInputValidator.IsValidHttpsUrl(_pinUrl.Text.Trim()) ||
-            (_current?.Source.Equals("Mercado Livre", StringComparison.OrdinalIgnoreCase) == true &&
+            (string.Equals(_current.Source, "Mercado Livre", StringComparison.OrdinalIgnoreCase) &&
              !ProductInputValidator.IsMercadoLivreAffiliate(_pinUrl.Text.Trim())))
         {
             MessageBox.Show("Corrija o destino HTTPS do Pin; utilize seu link oficial de afiliado.");
