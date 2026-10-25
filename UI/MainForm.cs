@@ -5,7 +5,7 @@ using GarimpoDaVezStudio.Services;
 
 namespace GarimpoDaVezStudio.UI;
 
-public sealed class MainForm : Form
+public sealed partial class MainForm : Form
 {
     private static readonly Color Background = Color.FromArgb(15, 23, 39);
     private static readonly Color Surface = Color.FromArgb(24, 34, 52);
@@ -201,6 +201,7 @@ public sealed class MainForm : Form
         cols.Controls.Add(form, 0, 0);
         form.Controls.Add(Section("DADOS DO PRODUTO"));
         form.Controls.Add(Field("Nome do produto *", _name));
+        SetupProductNameLookup(form);
         form.Controls.Add(Field("Fonte", _source));
         form.Controls.Add(Field("ID externo / SKU (opcional)", _externalId));
         SetupProductCategoryFields();
@@ -945,7 +946,13 @@ public sealed class MainForm : Form
     private void LoadProduct(Product p)
     {
         _current = p;
+        _suppressProductNameLookup = true;
         _name.Text = p.Name;
+        _suppressProductNameLookup = false;
+        _productNameTimer.Stop();
+        _productNameRevision++;
+        _remoteNameSuggestions.Clear();
+        _productNameSuggestions.Visible = false;
         _source.Text = p.Source;
         _externalId.Text = p.ExternalId;
         _category.Text = p.Category;
@@ -982,7 +989,14 @@ public sealed class MainForm : Form
 
     private void LoadProductFieldsForNew(Product p)
     {
-        _name.Clear(); _source.Text = p.Source; _externalId.Clear();
+        _suppressProductNameLookup = true;
+        _name.Clear();
+        _suppressProductNameLookup = false;
+        _productNameTimer.Stop();
+        _productNameRevision++;
+        _remoteNameSuggestions.Clear();
+        _productNameSuggestions.Visible = false;
+        _source.Text = p.Source; _externalId.Clear();
         _category.Clear();
         _suspendProductCategoryEvents = true;
         _productCategory.SelectedIndex = _productCategory.Items.Count > 0 ? 0 : -1;
