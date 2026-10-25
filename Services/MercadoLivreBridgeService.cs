@@ -29,6 +29,8 @@ public sealed class MercadoLivreResponse
     public bool Ok { get; set; }
     public string Error { get; set; } = "";
     public string Origin { get; set; } = "";
+    public bool Authenticated { get; set; }
+    public bool TokenValid { get; set; }
     public List<MercadoLivreCategory> Categories { get; set; } = new();
     public List<MercadoLivreListing> Items { get; set; } = new();
 }
@@ -80,6 +82,9 @@ public static class MercadoLivreBridgeService
         Directory.CreateDirectory(AppPaths.Root);
         File.WriteAllText(Path.Combine(AppPaths.Root, "python-repository.txt"), Path.GetFullPath(root));
     }
+
+    public static Task<MercadoLivreResponse> OAuthStatusAsync(string root) =>
+        ExecuteAsync(root, "oauth_status");
 
     public static Task<MercadoLivreResponse> CategoriesAsync(string root) =>
         ExecuteAsync(root, "categories");
