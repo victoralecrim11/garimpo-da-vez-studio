@@ -24,11 +24,36 @@ public sealed class MercadoLivreListing
     public string Currency { get; set; } = "";
 }
 
+public sealed class ProductNameSuggestion
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string Kind { get; set; } = "";
+    [JsonPropertyName("category_id")]
+    public string CategoryId { get; set; } = "";
+    public string Permalink { get; set; } = "";
+    public string Thumbnail { get; set; } = "";
+    public string Description { get; set; } = "";
+    public bool Verified { get; set; }
+    public string LocalProductId { get; set; } = "";
+
+    [JsonIgnore]
+    public string Display => Kind switch
+    {
+        "local" => "Meu cadastro · " + Name,
+        "listing" => "Anúncio · " + Name,
+        "catalog" => "Referência de catálogo · " + Name,
+        _ => Name
+    };
+}
+
 public sealed class MercadoLivreResponse
 {
     public bool Ok { get; set; }
     public string Error { get; set; } = "";
     public string Origin { get; set; } = "";
+    public string Warning { get; set; } = "";
+    public List<ProductNameSuggestion> Suggestions { get; set; } = new();
     public bool Authenticated { get; set; }
     public bool TokenValid { get; set; }
     public List<MercadoLivreCategory> Categories { get; set; } = new();
@@ -94,6 +119,12 @@ public static class MercadoLivreBridgeService
 
     public static Task<MercadoLivreResponse> SearchAsync(string root, string query, string category) =>
         ExecuteAsync(root, "search", "--query", query, "--category", category);
+
+    public static Task<MercadoLivreResponse> SuggestNamesAsync(string root, string query, string category) =>
+        ExecuteAsync(root, "suggest", "--query", query, "--category", category);
+
+    public static Task<MercadoLivreResponse> PreviewByUrlAsync(string root, string url) =>
+        ExecuteAsync(root, "preview_url", "--url", url);
 
     public static Task<MercadoLivreResponse> IngestAsync(string root, MercadoLivreListing item) =>
         ExecuteAsync(root, "ingest", "--url", item.Permalink, "--item-id", item.Id);
