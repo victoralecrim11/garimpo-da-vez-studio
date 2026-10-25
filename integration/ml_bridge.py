@@ -95,8 +95,14 @@ if __name__ == "__main__":
         sys.exit(main())
     except Exception as exc:
         message = str(exc)
-        if "401" in message or "403" in message:
-            message = "API oficial Mercado Livre retornou acesso negado (401/403); não há contorno."
+        match = re.search(r"HTTP\\s*(401|403)\\b", message)
+        if match:
+            code = match.group(1)
+            reason = ("verifique a validade da sessão OAuth" if code == "401"
+                      else "verifique a permissão da aplicação para o endpoint de busca")
+            message = ("Mercado Livre respondeu HTTP " + code + ": " + reason +
+                       ". Você pode cadastrar o anúncio pela URL real na interface; "
+                       "não é possível listar resultados de uma busca negada.")
         if len(message) > 450:
             message = message[:450]
         emit({"ok": False, "error": message})
