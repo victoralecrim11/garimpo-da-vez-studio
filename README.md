@@ -4,7 +4,11 @@ Aplicativo desktop **Windows Forms (C# / .NET 10)** para garimpo de anúncios of
 
 ## Funcionalidades
 
-- **Garimpo Mercado Livre:** seleciona pasta do projeto Python `garimpo-da-vez`, consulta categorias/subcategorias e pesquisa anúncios reais via **`automation/ml_discovery.py`** (API oficial). Busca por texto, categoria, seleção visual, preço indicativo e URL oficial.
+- **Garimpo Mercado Livre:** consulta categorias e subcategorias oficiais e, quando o acesso autoriza, pesquisa anúncios reais por termo na API com **`automation/ml_discovery.py`**. Exibe miniatura oficial do anúncio à direita da lista, se disponível; a prévia não concede licença de uso da foto.
+- **Alternativa a 401/403:** quando o endpoint de busca negar acesso, o usuário cola a URL real do produto na guia Garimpo e usa **Importar diretamente pela URL**. O motor Python existente usa os metadados permitidos para criar rascunho, sem inventar itens ou contornar a API.
+- **Cadastro por categorias oficiais:** seletores de categoria e subcategoria no formulário Produto com IDs persistidos no SQLite; os nomes antigos são preservados até o usuário escolher a classificação oficial.
+- **Nichos editoriais:** lista local de sugestões de marketing (ex.: decoração religiosa, home office, moda e organização), editável e separada dos domínios/categorias oficiais do Mercado Livre.
+- **Imagem original:** clique na área de prévia vazia ou no caminho exibido para abrir o seletor de arquivos JPG/PNG/BMP; o caminho salvo e a prévia atualizam após a importação.
 - **Importação:** traz o anúncio escolhido ao SQLite usando o ID **do anúncio MLB** como identificador externo. Evita importações duplicadas no Studio, preserva dados já editados e registra a URL **não comissionada** separadamente.
 - **Sincronização opcional com Python:** caixa marcada na tela pode executar o comando já existente `garimpo.py ingest-url URL`, que mantém a fila `automation/data/pins.json` e tenta atualizar `automation/data/produtos.xlsx`. Falha nessa etapa não desfaz o cadastro no SQLite: o programa informa a situação.
 - **Estúdio IA assistido:** prepara prompt e ativa a aba autenticada já aberta do ChatGPT no Edge; o usuário envia e salva a imagem manualmente.
@@ -41,17 +45,22 @@ No app:
 1. Abra a guia **02 · Garimpo Mercado Livre**.
 2. Em **Selecionar pasta Python**, escolha a raiz `garimpo-da-vez` (a pasta que contém `automation`). Se os repositórios forem irmãos, a descoberta pode ser automática.
 3. Clique **Carregar categorias** (API oficial; a raiz pode usar cache oficial identificado). Escolha uma categoria e, quando disponível, uma subcategoria.
-4. Digite um termo (ex.: `luminária LED`) e clique **Pesquisar anúncios**. A lista só é preenchida com resultados oficiais validados pelo módulo Python; preços são momentâneos.
+4. Digite um termo (ex.: `luminária LED`) e clique **Pesquisar anúncios**. A lista só é preenchida com resultados oficiais validados pelo módulo Python; preços são momentâneos. A miniatura aparece ao lado se o endpoint retornar uma URL `mlstatic.com` válida.
+   - **Se der HTTP 401/403:** abra o produto real no Mercado Livre, copie a URL da barra de endereços e cole no campo **Busca bloqueada? Cole a URL real**; clique **Importar diretamente pela URL**. Os metadados podem ser parciais e exigem revisão.
+   - A URL manual já passa pela fila Python durante a importação; não haverá duplicação dessa etapa ao concluir o cadastro no Studio.
 5. Selecione um anúncio e clique **Importar anúncio selecionado**. O cadastro passa à guia **Produto**; o campo **Link oficial do afiliado** permanece vazio até você informar e conferir o link correto da Central de Afiliados.
 6. Se **Também registrar na fila Python** estiver marcado, a ponte executará `ingest-url` e informará sucesso ou erro de sincronização. O arquivo `produtos.xlsx` da automação depende das regras e permissões já implementadas no Python.
-7. Adicione uma foto que possua autorização para uso comercial, gere o prompt no **Estúdio IA**, salve a versão aprovada e prepare o Pin.
+7. Na aba **01 · Produto**, escolha a categoria/subcategoria da API e um nicho editorial (ou escreva o seu). Clique na imagem original vazia ou no campo de caminho e escolha um arquivo de imagem local autorizado para divulgação comercial.
+8. Gere o prompt no **Estúdio IA**, importe a versão editada aprovada e prepare o Pin.
 
 A configuração do caminho da pasta Python é salva em `%LOCALAPPDATA%\GarimpoDaVezStudio\python-repository.txt` (somente o caminho, **nunca tokens**).
 
 ### Limites importantes
 
 - A API de consulta **não** gera links de comissão; as funções do Mercado Livre para catálogo/produtos são distintas dos anúncios e da Central de Afiliados. Confira o link individual e a elegibilidade na Central.
-- A busca pela API pode ser bloqueada: se houver **401/403**, utilize o fluxo `ingest-url URL_REAL` diretamente no projeto Python. O app mostra o erro; não apresenta resultados falsos.
+- A busca pela API pode ser bloqueada: se houver **401/403**, utilize a importação por URL da própria interface (ou o comando Python `ingest-url URL_REAL`). Isso **não restaura a pesquisa/listagem bloqueada** e não apresenta resultados falsos. O 401/403 depende das permissões/regras de acesso da API.
+- Miniaturas são apenas prévias remotas sem gravação automática; ao preparar Pins, importe manualmente um arquivo que você tem direito de usar. O mesmo vale quando a API não fornecer uma imagem.
+- Categorias vêm da API oficial ou cache oficial identificado, mas nichos são curadoria local e **não provam participação no programa de afiliados**.
 - Importar anúncio não concede direitos sobre fotografia, não confirma estoque/comissão e não aprova publicação.
 - O WinForms **não automatiza postagem no Pinterest nem envio/download no ChatGPT web**.
 - O Studio mantém seu **próprio SQLite**; o JSON/XLSX são da **fila Python**. A sincronização opcional é unidirecional Studio → Python para a seleção importada; edições posteriores no Studio não atualizam automaticamente a fila Python.
@@ -74,8 +83,9 @@ O botão **Ativar aba do ChatGPT** foca a janela Edge que já está com ChatGPT 
 
 ```text
 UI/MainForm.cs                       # interface, garimpo, estúdio e rascunhos
-Services/MercadoLivreBridgeService.cs # inicializa Python, JSON, valida pasta e timeout
-integration/ml_bridge.py             # importa ml_discovery.py e chama garimpo.py
+Services/MercadoLivreBridgeService.cs # inicia Python, recebe anúncios/miniaturas e importa URL manual
+integration/ml_bridge.py             # reusa ml_discovery.py e suporta ingest-url sem scraping
+Services/NicheCatalog.cs             # nichos editoriais locais editáveis
 Models/Models.cs                     # produto, imagem, Pin e log
 Data/StudioRepository.cs             # SQLite, incluindo migração não destrutiva
 Services/ExcelExportService.cs       # Excel de produtos do Studio
