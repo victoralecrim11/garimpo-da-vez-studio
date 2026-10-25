@@ -38,3 +38,18 @@ endpoints de marketplace, API do Pinterest e automação da interface do ChatGPT
 - [ ] Execute com banco SQLite anterior à atualização; verifique migração não destrutiva de `listing_url`.
 - [ ] Verifique que a exportação Excel Studio traz coluna URL anúncio independente do link afiliado.
 - [ ] Teste com URL inválida/ID ML incorreto e confirme recusa.
+
+## Categorias, nichos, busca bloqueada e prévias (2026-10)
+
+- [ ] Cadastro de produto: clicar **Carregar categorias oficiais** e confirmar as opções em cada seletor.
+- [ ] Trocar categoria e confirmar carregamento das subcategorias e sugestões de nichos.
+- [ ] Digitar um nicho personalizado que não existe na lista, salvar e recarregar o produto.
+- [ ] Atualizar banco SQLite legado sem perder categoria, nicho, foto e link de afiliado.
+- [ ] Pesquisar anúncio autorizado: selecionar linha e ver miniatura `mlstatic.com` à direita, sem salvar no disco.
+- [ ] Forçar um resultado sem thumbnail e confirmar que o espaço fica vazio (nunca aparece imagem fictícia).
+- [ ] Receber HTTP 401/403 e confirmar mensagem indicando importação pela URL real.
+- [ ] Importar URL real do anúncio pelo campo alternativo e revisar título, ID, categoria e ausência de direitos confirmados.
+- [ ] Tentar importar URL externa (example.com) e confirmar rejeição.
+- [ ] Clicar no retângulo da imagem original, selecionar um arquivo válido no diálogo e conferir caminho e prévia.
+- [ ] Cancelar o diálogo sem alterar a imagem previamente salva.
+- [ ] Importar anúncio cujo título/thumbnail não é acessível e confirmar que o sistema NÃO inventa dados.
