@@ -71,3 +71,16 @@ endpoints de marketplace, API do Pinterest e automação da interface do ChatGPT
 - [ ] Após login, revisar status no Studio. Repetir em caso de token revogado/vencido.
 - [ ] Mesmo autorizado, testar endpoint bloqueado (403), garantindo que a interface mostre o erro e ofereça entrada por URL.
 - [ ] Nunca inserir Client Secret, refresh token ou código de callback em arquivos de testes, commits ou screenshots.
+
+## Cadastro pelo campo Nome do produto (2026-10)
+
+- [ ] Digitar 3+ caracteres e verificar sugestões com rótulos Meu cadastro / Anúncio / Referência de catálogo.
+- [ ] Selecionar cadastro local e confirmar que links, imagens e edições existentes foram preservados.
+- [ ] Selecionar anúncio real e confirmar nome, ID MLB, URL do anúncio e classificação quando a API disponibilizar.
+- [ ] Selecionar produto de catálogo e confirmar que o título aparece, mas nenhum ID de anúncio ou link comissionado é inventado.
+- [ ] Testar busca 403: mostrar aviso, recorrer somente à consulta oficial de catálogo se autorizada; se também negar, mostrar só cadastros locais.
+- [ ] Mudar de produto enquanto uma consulta está em andamento e verificar que o resultado antigo não sobrescreve o produto atual.
+- [ ] Colar URL HTTPS oficial no cadastro e usar Preencher pela URL; confirmar que não criou entrada na fila Python.
+- [ ] Consultar URL com metadados parciais e verificar aviso de revisão; conferir categoria e preço antes de publicar.
+- [ ] Confirmar que miniatura exibida na interface não é gravada como imagem licenciada para divulgação.
+- [ ] Clicar Salvar produto após a seleção e recarregar o registro no SQLite.
