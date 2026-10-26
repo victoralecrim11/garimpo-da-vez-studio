@@ -14,6 +14,8 @@ jobs:
           python-version: '3.12'
       - name: Python bridge contract tests (offline)
         run: python -m unittest discover -s integration/tests -v
+      - name: Validar o gerador de CSV histórico sem acessar a rede
+        run: python -m unittest discover -s tools/catalogo -p "test_*.py" -v
   build:
     runs-on: windows-latest
     steps:
@@ -33,3 +35,5 @@ jobs:
         run: dotnet run --project Tests/SuggestionDisplay/SuggestionDisplayTests.csproj -c Release
       - name: Test hybrid catalog CSV, Excel and SQLite
         run: dotnet run --project Tests/Catalog/CatalogTests.csproj -c Release
+      - name: Compilar importador CLI de catálogo
+        run: dotnet build tools/CatalogImport/CatalogImport.csproj -c Release
