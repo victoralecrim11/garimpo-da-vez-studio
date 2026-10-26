@@ -121,3 +121,23 @@ endpoints de marketplace, API do Pinterest e automação da interface do ChatGPT
 - [ ] Selecionar uma URL oficial e repetir o teste de nome curto e de enriquecimento de categoria/descrição.
 - [ ] Digitar manualmente outro nome durante a consulta e confirmar que a resposta assíncrona não modifica o novo cadastro.
 - [ ] Alterar o nome proposto quando o trecho resumido omitir modelo ou característica essencial; a confirmação final continua humana.
+
+## Catálogo híbrido — homologação no Windows (2026-10)
+
+- [ ] Abrir a aba 07 com banco SQLite anterior; confirmar preservação de produtos, imagens e Pins.
+- [ ] Importar CSV `Nome;Categoria;Preço` e XLSX com campos opcionais, inclusive acentos.
+- [ ] Confirmar índices FTS5 e pesquisa local por termos com/sem acento.
+- [ ] Reimportar o mesmo CSV e confirmar ausência de duplicatas.
+- [ ] Verificar erro para cabeçalho ausente, URL externa inválida e XLSX com fórmula na coluna de nome.
+- [ ] Pesquisar referência importada na lateral e no campo Nome do produto, mesmo com Python/OAuth desconectados.
+- [ ] Promover referência ao cadastro; a ação não deve salvar automaticamente nem criar link comissionado.
+- [ ] Clicar Reunir salvos e confirmar que produtos já cadastrados entram no índice híbrido.
+- [ ] Buscar anúncios com a API autorizada e verificar entrada incremental no catálogo sem inventar IDs.
+- [ ] Escolher categoria folha na aba 02, coletar mais vendidos na aba 07; checar tipos ITEM/PRODUCT, ausências e avisos.
+- [ ] Simular 403 no ranking e conferir que não surgem produtos falsos ou status Validado.
+- [ ] Atualizar anúncio existente e confirmar data de verificação somente com metadados reais.
+- [ ] Confirmar link de afiliado de anúncio, confirmar status e reimportar planilha antiga: o link confirmado não deve ser apagado.
+- [ ] Exportar Excel e conferir colunas de origem, último verificado, status e link.
+- [ ] Deixar Excel automático ativo, importar arquivo e aguardar sincronização em %LOCALAPPDATA%.
+- [ ] Abrir Excel automático para bloquear gravação e repetir atualização: SQLite deve permanecer intacto.
+- [ ] Verificar que arquivo do Python `automation/data/produtos.xlsx` não foi tratado como base transacional do Studio.

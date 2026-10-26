@@ -150,3 +150,69 @@ Os próximos commits deste repositório devem ter **título em português** e **
 - Configure o modelo local com `git config --local commit.template .gitmessage`.
 - O workflow [Validar mensagens de commits em português](.github/workflows/validar-commits.yml) verifica os commits novos. O verificador confere a estrutura do texto, mas não garante sozinho que todas as palavras estejam em português.
 - O histórico anterior permanece inalterado para preservar os SHAs e não interromper cópias locais ou integrações.
+
+## Catálogo híbrido: CSV, Excel, API e SQLite
+
+A aba **07 · Catálogo híbrido** utiliza as tabelas `catalog_entries` e `catalog_events` no mesmo
+SQLite do Studio. Ela não substitui nem apaga os produtos existentes. O índice FTS5 acelera
+buscas locais e há uma consulta `LIKE` de segurança quando FTS não está disponível.
+
+### Como importar uma planilha
+
+1. Entre em **07 · Catálogo híbrido** e clique **Importar CSV/XLSX**.
+2. Selecione um arquivo `.csv` (separador `;`, `,` ou tabulação) ou `.xlsx`.
+3. A planilha precisa ter uma coluna `Nome`, `Produto`, `Nome do produto`, `Title` ou `Name`.
+4. Colunas opcionais: `Categoria`, `ID categoria`, `ID subcategoria`, `Descrição`,
+   `Preço`, `Moeda`, `ID oficial`, `URL do anúncio` e `URL da imagem`.
+5. Busque o produto na nova aba, na lista lateral ou no campo **Nome do produto**. Clique
+   **Usar no Studio** e revise as informações antes de clicar **Salvar produto**.
+
+Os arquivos são lidos em lotes com transação SQL; o limite é **60 MB e 150 mil linhas** por arquivo.
+Arquivos sem cabeçalho de nome são rejeitados. Registros com IDs oficiais conhecidos
+são deduplicados por tipo e ID; os demais usam título e categoria para uma chave local.
+Pode reimportar uma planilha sem duplicar a mesma referência. Preços importados
+são **históricos/informados**, jamais preços confirmados como atuais. Fórmulas não são
+avaliadas durante a importação e URLs de imagens ficam restritas a HTTPS `mlstatic.com`.
+
+### Descobertas online e mais vendidos
+
+- Consultas de nome na aba 01, buscas laterais e busca de anúncios na aba 02 podem
+  alimentar automaticamente o catálogo quando retornarem dados reais.
+- Para obter **mais vendidos por categoria**, selecione uma categoria/subcategoria
+  oficial na aba **02 · Garimpo Mercado Livre**, depois clique
+  **Mais vendidos · categoria** na aba 07. O serviço consulta
+  `/highlights/MLB/category/{id}` e os detalhes oficiais de até 15 resultados.
+  Pode misturar anúncios individuais e produtos do catálogo, além de omitir itens
+  indisponíveis. **Não comprova elegibilidade à comissão ou estoque atual**.
+- **Atualizar anúncio** consulta metadados oficiais do ID selecionado. Sem
+  permissão ou sem ID oficial, o registro permanece como referência local.
+  Restrições HTTP 401/403 não são contornadas.
+- **Reunir salvos** indexa produtos já cadastrados no Studio sem alterar
+  ou marcar links de afiliado como confirmados.
+- **Confirmar link** exige um anúncio real e a confirmação humana de um
+  endereço obtido na Barra/Central oficial de Afiliados. Importações nunca
+  confirmam comissão, mesmo que o arquivo afirme isso.
+
+### Excel incremental
+
+Quando a opção **Atualizar catálogo Excel automaticamente após alterações** está
+ativada (padrão), o aplicativo gera em poucos segundos o arquivo:
+
+`%LOCALAPPDATA%\GarimpoDaVezStudio\relatorios\catalogo-atualizado.xlsx`
+
+O SQLite continua sendo a fonte principal. A exportação é preparada em um
+arquivo temporário e substitui a versão anterior somente após terminar.
+Se o Excel estiver aberto e bloquear a substituição, o cadastro permanece salvo
+no SQLite; feche o Excel e tente exportar novamente. O botão **Exportar Excel**
+permite salvar uma cópia onde você preferir.
+
+O Excel mantém procedência, data de verificação, status e link de afiliado
+independentemente. O `automation/data/produtos.xlsx` do motor Python continua
+sendo uma saída separada: a fila Python não é alterada em massa pela importação
+do catálogo, e somente o fluxo de importação pela aba Garimpo sincroniza essa fila
+quando a opção correspondente estiver ativa.
+
+**Aviso:** o Studio não inclui uma lista pré-carregada de milhares de
+produtos. Você precisa importar seu arquivo CSV/XLSX ou coletar dados de
+endpoints oficiais autorizados. Não importa automaticamente datasets de
+terceiros sem verificar licenças e condições de uso.
