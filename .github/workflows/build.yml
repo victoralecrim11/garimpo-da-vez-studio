@@ -31,3 +31,5 @@ jobs:
         run: dotnet run --project Tests/InputValidation/InputValidationTests.csproj -c Release
       - name: Verify product suggestion text in WinForms
         run: dotnet run --project Tests/SuggestionDisplay/SuggestionDisplayTests.csproj -c Release
+      - name: Test hybrid catalog CSV, Excel and SQLite
+        run: dotnet run --project Tests/Catalog/CatalogTests.csproj -c Release
