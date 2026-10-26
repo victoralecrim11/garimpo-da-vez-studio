@@ -188,6 +188,66 @@ def official_details(kind: str, identifier: str, name: str,
             "categories": path, "warning": " ".join(warnings)}
 
 
+def official_highlights(category: str, token: str) -> dict:
+    """Mais vendidos oficiais; o ranking pode misturar anúncios e produtos."""
+    from automation.ml_discovery import _api_get, DiscoveryError
+    if not re.fullmatch(r"MLB[0-9]{2,12}", category):
+        raise ValueError("Selecione uma categoria oficial válida na aba Garimpo.")
+    response = _api_get("/highlights/MLB/category/" + category, token=token)
+    content = response.get("content") if isinstance(response, dict) else None
+    if not isinstance(content, list):
+        raise ValueError("Resposta do recurso de mais vendidos inválida.")
+    results = []
+    unavailable = 0
+    for row in content[:15]:
+        if not isinstance(row, dict):
+            continue
+        item_id = str(row.get("id") or "")
+        kind = str(row.get("type") or "")
+        is_listing = kind == "ITEM" and bool(re.fullmatch(r"MLB[0-9]{6,18}", item_id))
+        is_catalog = kind in ("PRODUCT", "USER_PRODUCT") and bool(
+            re.fullmatch(r"MLB[A-Z0-9]{3,25}", item_id))
+        if not (is_listing or is_catalog):
+            unavailable += 1
+            continue
+        endpoint = "/items/" + item_id if is_listing else "/products/" + item_id
+        try:
+            detail = _api_get(endpoint, token=token)
+        except DiscoveryError:
+            unavailable += 1
+            continue
+        if not isinstance(detail, dict) or str(detail.get("id") or "") != item_id:
+            unavailable += 1
+            continue
+        title = detail.get("title") if is_listing else detail.get("name")
+        if not isinstance(title, str) or not title.strip():
+            unavailable += 1
+            continue
+        if is_listing and detail.get("status") not in ("active", None):
+            continue
+        images = detail.get("pictures") or []
+        picture = images[0] if images and isinstance(images[0], dict) else {}
+        thumbnail = safe_picture((picture.get("secure_url") or
+                                   detail.get("secure_thumbnail") or
+                                   detail.get("thumbnail") or ""))
+        url = detail.get("permalink") if is_listing else ""
+        if not isinstance(url, str) or urlsplit(url).scheme != "https":
+            url = ""
+        cat = str(detail.get("category_id") or category)
+        price = detail.get("price") if is_listing else None
+        if not isinstance(price, (int, float)) or price < 0 or price > 10_000_000:
+            price = None
+        results.append({
+            "id": item_id, "name": title.strip()[:180],
+            "kind": "listing" if is_listing else "catalog",
+            "category_id": cat if re.fullmatch(r"MLB[0-9]{2,12}", cat) else category,
+            "permalink": url, "thumbnail": thumbnail,
+            "description": "", "verified": True,
+            "price": price, "currency": str(detail.get("currency_id") or "")[:8],
+        })
+    return {"ok": True, "origin": "highlights_oficiais", "suggestions": results,
+            "warning": f"{unavailable} resultados não exibidos: tipo sem suporte ou detalhes inacessíveis."}
+
 def official_preview(url: str, token: str) -> dict:
     """Pré-preenchimento sem ingestão, sem gravação da fila e sem download de imagens."""
     from automation.ml_ingest import get_product_metadata
@@ -210,7 +270,7 @@ def official_preview(url: str, token: str) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", required=True)
-    parser.add_argument("--action", choices=["categories", "children", "search", "ingest", "manual", "oauth_status", "suggest", "preview_url", "category_path", "enrich"], required=True)
+    parser.add_argument("--action", choices=["categories", "children", "search", "ingest", "manual", "oauth_status", "suggest", "preview_url", "category_path", "enrich", "highlights"], required=True)
     parser.add_argument("--category", default="")
     parser.add_argument("--query", default="")
     parser.add_argument("--url", default="")
@@ -253,6 +313,8 @@ def main() -> int:
             and isinstance(row.get("name"), str) and row["name"].strip()
         ]
         return emit({"ok": True, "origin": "api", "categories": categories})
+    if args.action == "highlights":
+        return emit(official_highlights(args.category, token))
     if args.action == "enrich":
         return emit(official_details(args.kind, args.item_id, args.query.strip(), args.category, token))
     if args.action == "suggest":

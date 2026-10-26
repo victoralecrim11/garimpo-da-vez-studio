@@ -34,12 +34,16 @@ public sealed class ProductNameSuggestion
     public string Permalink { get; set; } = "";
     public string Thumbnail { get; set; } = "";
     public string Description { get; set; } = "";
+    public decimal? Price { get; set; }
+    public string Currency { get; set; } = "";
     [JsonPropertyName("description_source")]
     public string DescriptionSource { get; set; } = "";
     [JsonPropertyName("category_source")]
     public string CategorySource { get; set; } = "";
     public bool Verified { get; set; }
     public string LocalProductId { get; set; } = "";
+    [JsonIgnore]
+    public string CatalogKey { get; set; } = "";
 
     [JsonIgnore]
     public string SuggestedName => Kind is "catalog" or "listing"
@@ -49,6 +53,7 @@ public sealed class ProductNameSuggestion
     public string Display => Kind switch
     {
         "local" => "Meu cadastro · " + Name,
+        "offline" => "Base híbrida · " + SuggestedName,
         "listing" => "Anúncio · " + SuggestedName,
         "catalog" => "Referência de catálogo · " + SuggestedName,
         _ => Name
@@ -139,6 +144,9 @@ public static class MercadoLivreBridgeService
     public static Task<MercadoLivreResponse> EnrichSuggestionAsync(string root, ProductNameSuggestion suggestion) =>
         ExecuteAsync(root, "enrich", "--kind", suggestion.Kind, "--item-id", suggestion.Id,
             "--query", suggestion.Name, "--category", suggestion.CategoryId);
+
+    public static Task<MercadoLivreResponse> HighlightsAsync(string root, string categoryId) =>
+        ExecuteAsync(root, "highlights", "--category", categoryId);
 
     public static Task<MercadoLivreResponse> PreviewByUrlAsync(string root, string url) =>
         ExecuteAsync(root, "preview_url", "--url", url);

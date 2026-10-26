@@ -75,6 +75,10 @@ public sealed partial class MainForm
             if (revision != _sidebarSearchRevision || IsDisposed) return;
             _sidebarOfficialSuggestions.Clear();
             _sidebarOfficialSuggestions.AddRange(result.Suggestions.Take(12));
+            try {
+                CaptureCatalogSuggestions(result.Suggestions.Take(12),"api");
+            }
+            catch(Exception ex) { _footer.Text="Resultados encontrados; armazenamento no catálogo falhou: "+ex.Message; }
             ReloadProducts(_current?.Id);
             _sidebarSearchStatus.Text = result.Origin switch
             {
@@ -119,6 +123,12 @@ public sealed partial class MainForm
             return;
         }
 
+        if (selected.CatalogReference is GarimpoDaVezStudio.Data.CatalogEntry indexed)
+        {
+            _search.Clear();
+            LoadCatalogEntry(indexed);
+            return;
+        }
         if (selected.OfficialSuggestion is not ProductNameSuggestion suggestion) return;
         // Limpar o filtro lateral ANTES de abrir o cadastro evita mostrar o
         // resultado oficial como se fosse um produto salvo no SQLite.

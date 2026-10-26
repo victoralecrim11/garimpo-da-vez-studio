@@ -78,6 +78,7 @@ public sealed partial class MainForm : Form
     public MainForm(StudioRepository repository)
     {
         _repository = repository;
+        _catalog.Initialize();
         Text = "Garimpo da Vez Studio · Produtos e Pins";
         Width = 1440;
         Height = 900;
@@ -193,6 +194,7 @@ public sealed partial class MainForm : Form
         _tabs.TabPages.Add(BuildVersionsTab());
         _tabs.TabPages.Add(BuildPinTab());
         _tabs.TabPages.Add(BuildHistoryTab());
+        _tabs.TabPages.Add(BuildCatalogTab());
     }
 
     private TabPage BuildProductTab()
@@ -664,6 +666,7 @@ public sealed partial class MainForm : Form
             var result = await MercadoLivreBridgeService.SearchAsync(_mlRoot.Text, query, category ?? "");
             _mlResults.DataSource = null;
             _mlResults.DataSource = result.Items;
+            CaptureCatalogListings(result.Items);
             _mlStatus.Text = result.Items.Count + " anúncio(s) real(is) retornado(s); preço sujeito a mudanças.";
         }
         catch (Exception ex)
@@ -734,6 +737,7 @@ public sealed partial class MainForm : Form
             EndMlOperation();
             _mlResults.DataSource = null;
             _mlResults.DataSource = new List<MercadoLivreListing> { selected };
+            CaptureCatalogListings(new[] {selected});
             await ImportMlListingAsync(selected, alreadyInPythonQueue: true);
         }
         catch (Exception ex)
@@ -957,6 +961,17 @@ public sealed partial class MainForm : Form
         // Resultados remotos não são gravados em SQLite até o usuário revisar
         // os dados na aba Produto e clicar em Salvar.
         var entries = products.Select(p => new SidebarSearchItem { LocalProduct = p }).ToList();
+        if (query.Length >= 2)
+        {
+            foreach (var reference in _catalog.Search(query, 25))
+            {
+                if (products.Any(p =>
+                    (!string.IsNullOrWhiteSpace(reference.ExternalId) && p.ExternalId == reference.ExternalId) ||
+                    (string.Equals(p.Name, reference.Name, StringComparison.OrdinalIgnoreCase))))
+                    continue;
+                entries.Add(new SidebarSearchItem { CatalogReference = reference });
+            }
+        }
         if (query.Length >= 3)
             entries.AddRange(_sidebarOfficialSuggestions.Select(s =>
                 new SidebarSearchItem { OfficialSuggestion = s }));
@@ -1135,6 +1150,8 @@ public sealed partial class MainForm : Form
         _current.AffiliateUrl = _affiliateUrl.Text.Trim();
         _current.ListingUrl = _listingUrl.Text.Trim();
         _repository.SaveProduct(_current);
+        try { _catalog.UpsertBatch(new[]{CatalogFromStudio(_current)},"Cadastro salvo no Studio"); ScheduleCatalogExcel(); }
+        catch (Exception ex) { _footer.Text = "Cadastro salvo; índice híbrido indisponível: " + ex.Message; }
         _repository.AddLog(_current.Id, "Produto", "Cadastro salvo ou atualizado");
         ReloadProducts(_current.Id);
         _footer.Text = "Produto salvo no SQLite.";

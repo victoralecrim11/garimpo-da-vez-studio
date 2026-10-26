@@ -39,7 +39,10 @@ def _api_get(path, params=None, token=""):
             {"id":"MLB456","name":"Casa"},
             {"id":"MLB123","name":"Quadros decorativos"}]}
     if path == "/items/MLB123456789":
-        return {"id":"MLB123456789", "category_id":"MLB123"}
+        return {"id":"MLB123456789", "category_id":"MLB123",
+                "title":"Abajur LED oficial", "status":"active",
+                "price":88.70, "currency_id":"BRL",
+                "permalink":"https://www.mercadolivre.com.br/item/MLB123456789"}
     if path == "/items/MLB123456789/description":
         return {"plain_text":"Luminária LED com estrutura metálica, conforme anúncio."}
     if path == "/items/MLB987654321":
@@ -47,7 +50,7 @@ def _api_get(path, params=None, token=""):
     if path == "/items/MLB987654321/description":
         raise DiscoveryError("HTTP 403")
     if path == "/products/MLBU300001":
-        return {"id":"MLBU300001", "category_id":"MLB123",
+        return {"id":"MLBU300001", "name":"Luminária de catálogo", "category_id":"MLB123",
                 "short_description":{"type":"text","content":"Luminária de catálogo com iluminação ajustável."}}
     if path == "/products/MLBU300002":
         return {"id":"MLBU300002", "attributes":[{"name":"Cor","value_name":"Branco"},
@@ -55,6 +58,12 @@ def _api_get(path, params=None, token=""):
     if path == "/products/MLBU300003":
         return {"id":"MLBU300003", "attributes":[]}
     if path == "/products/MLBU300004":
+        raise DiscoveryError("HTTP 403")
+    if path == "/highlights/MLB/category/MLB123":
+        return {"content":[{"id":"MLB123456789","type":"ITEM","position":1},
+                           {"id":"MLBU300001","type":"PRODUCT","position":2},
+                           {"id":"MLB000000001","type":"UNKNOWN","position":3}]}
+    if path == "/highlights/MLB/category/MLB999":
         raise DiscoveryError("HTTP 403")
     if path == "/sites/MLB/domain_discovery/search":
         return [{"category_id":"MLB123", "category_name":"Quadros decorativos"}]
@@ -192,6 +201,29 @@ if __name__ == "__main__":
 
     def test_category_path_refuses_invalid_identifier(self):
         code, obj = self.run_bridge("category_path", "--category", "TESTE123")
+        self.assertNotEqual(code, 0)
+        self.assertFalse(obj["ok"])
+
+    def test_highlights_mixed_types_are_not_all_listings(self):
+        code, obj = self.run_bridge("highlights", "--category", "MLB123")
+        self.assertEqual(code, 0)
+        self.assertEqual(obj["origin"], "highlights_oficiais")
+        self.assertEqual(len(obj["suggestions"]), 2)
+        listing, product = obj["suggestions"]
+        self.assertEqual(listing["kind"], "listing")
+        self.assertEqual(listing["price"], 88.7)
+        self.assertTrue(listing["permalink"].startswith("https://www.mercadolivre"))
+        self.assertEqual(product["kind"], "catalog")
+        self.assertEqual(product["permalink"], "")
+        self.assertIn("1 resultados não exibidos", obj["warning"])
+
+    def test_highlights_403_does_not_fabricate_products(self):
+        code, obj = self.run_bridge("highlights", "--category", "MLB999")
+        self.assertNotEqual(code, 0)
+        self.assertFalse(obj["ok"])
+
+    def test_highlights_rejects_invalid_category(self):
+        code, obj = self.run_bridge("highlights", "--category", "CASA")
         self.assertNotEqual(code, 0)
         self.assertFalse(obj["ok"])
 

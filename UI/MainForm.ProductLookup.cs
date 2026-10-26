@@ -100,6 +100,11 @@ public sealed partial class MainForm
                 .Select(p => new ProductNameSuggestion {
                     Name = p.Name, Id = p.ExternalId, Kind = "local", LocalProductId = p.Id
                 }).ToList();
+        foreach (var row in term.Length >= 2 ? _catalog.Search(term, 8) : new List<GarimpoDaVezStudio.Data.CatalogEntry>())
+        {
+            if (matches.Any(s => string.Equals(s.Name,row.Name,StringComparison.OrdinalIgnoreCase)))continue;
+            matches.Add(new ProductNameSuggestion{ Kind="offline",Name=row.Name,CatalogKey=row.Key });
+        }
         matches.AddRange(_remoteNameSuggestions.Where(s =>
             !matches.Any(x => x.Id.Length > 0 && x.Id == s.Id && s.Kind == "listing")));
         _productNameSuggestions.BeginUpdate();
@@ -143,6 +148,7 @@ public sealed partial class MainForm
             if (revision != _productNameRevision) return;
             _remoteNameSuggestions.Clear();
             _remoteNameSuggestions.AddRange(result.Suggestions.Take(12));
+            CaptureCatalogSuggestions(result.Suggestions.Take(12),"api");
             RenderProductSuggestions();
             _productNameStatus.Text = result.Origin switch
             {
@@ -181,6 +187,12 @@ public sealed partial class MainForm
     {
         _productNameTimer.Stop();
         _productNameRevision++;
+        if (suggestion.Kind == "offline" && suggestion.CatalogKey.Length>0)
+        {
+            var row=_catalog.Find(suggestion.CatalogKey);
+            if(row is not null)LoadCatalogEntry(row);
+            return;
+        }
         if (suggestion.Kind == "local")
         {
             var saved = _repository.GetProducts().FirstOrDefault(p => p.Id == suggestion.LocalProductId);

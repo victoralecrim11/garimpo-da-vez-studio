@@ -10,10 +10,17 @@ public sealed class SidebarSearchItem
 {
     public Product? LocalProduct { get; init; }
     public ProductNameSuggestion? OfficialSuggestion { get; init; }
+    public GarimpoDaVezStudio.Data.CatalogEntry? CatalogReference { get; init; }
 
     public override string ToString()
     {
         if (LocalProduct is not null) return "Salvo · " + LocalProduct.Name;
-        return OfficialSuggestion?.Display ?? "";
+        return CatalogReference is not null
+            ? CatalogReference.Kind switch {
+                "listing" => "Anúncio indexado · " + ProductTitleFormatter.Suggest(CatalogReference.Name),
+                "catalog" => "Catálogo indexado · " + ProductTitleFormatter.Suggest(CatalogReference.Name),
+                _ => "Base offline · " + CatalogReference.Name
+              }
+            : OfficialSuggestion?.Display ?? "";
     }
 }
