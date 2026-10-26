@@ -105,14 +105,18 @@ public sealed partial class MainForm
         FormClosed+=(_,_)=> {
             _catalogSearchTimer.Dispose();
             _catalogExcelTimer.Dispose();
-            _catalogExcelLock.Dispose();
+            // Exportação em andamento ainda pode liberar o semáforo ao concluir.
+            // Evita descartá-lo enquanto uma tarefa assíncrona estiver ativa.
         };
+        page.Enter+=(_,_)=>RefreshCatalog();
         RefreshCatalog();
         return page;
     }
 
     private CatalogEntry? SelectedCatalogEntry() =>
-        _catalogGrid.CurrentRow?.DataBoundItem as CatalogEntry;
+        _catalogGrid.SelectedRows.Count == 1
+            ? _catalogGrid.SelectedRows[0].DataBoundItem as CatalogEntry
+            : null;
 
     private void RefreshCatalog()
     {
@@ -150,11 +154,13 @@ public sealed partial class MainForm
         try
         {
             await Task.Run(()=>CatalogFilesService.Export(_catalog,CatalogFilesService.AutomaticPath));
-            _footer.Text="Catálogo sincronizado: "+CatalogFilesService.AutomaticPath;
+            if(!IsDisposed)
+                _footer.Text="Catálogo sincronizado: "+CatalogFilesService.AutomaticPath;
         }
         catch(Exception ex)
         {
-            _catalogInfo.Text="Catálogo salvo no SQLite, mas Excel automático pendente: "+ex.Message;
+            if(!IsDisposed)
+                _catalogInfo.Text="Catálogo salvo no SQLite, mas Excel automático pendente: "+ex.Message;
             // Pode estar aberto no Excel; usuário consegue exportar manualmente.
         }
         finally {_catalogExcelLock.Release();}

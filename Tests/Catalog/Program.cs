@@ -58,6 +58,7 @@ try
         "atualização não sobrescreve comissão");
     Check(saved.Price==90.00m,"preço atualizado pela API");
     Check(catalog.Count()==3,"mesmo MLB não duplica");
+    Check(catalog.Search("MLB123456789").Count==1,"busca pelo ID oficial indexado");
 
     var xlsx=Path.Combine(temp,"planilha.xlsx");
     using(var wb=new XLWorkbook())
@@ -84,6 +85,9 @@ try
         Check(sheet.RangeUsed()!.RowCount()>=5,"todas as linhas exportadas");
         Check(sheet.RowsUsed().Any(r=>r.CellsUsed().Any(c=>c.GetString()=="Link confirmado")),
             "exporta status de comissão confirmado");
+        var priceRow=sheet.RowsUsed().FirstOrDefault(r=>r.Cell(3).GetString()=="Abajur LED verificado novamente");
+        Check(priceRow is not null && priceRow.Cell(8).DataType==XLDataType.Number &&
+            priceRow.Cell(8).GetDouble()==90.0,"preço Excel exportado como número");
     }
     // O arquivo anterior não deve sumir por ter sido substituído.
     CatalogFilesService.Export(catalog,outXlsx);

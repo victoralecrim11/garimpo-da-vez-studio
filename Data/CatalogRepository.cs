@@ -159,9 +159,11 @@ public sealed class CatalogRepository
             cmd.CommandText = $"""
                 SELECT {SelectColumns} FROM catalog_entries
                 WHERE rowid IN (SELECT rowid FROM catalog_fts WHERE catalog_fts MATCH $q)
+                    OR external_id LIKE $external
                 ORDER BY updated_utc DESC LIMIT $lim
                 """;
             cmd.Parameters.AddWithValue("$q", string.Join(" AND ", words.Select(w => "\"" + w.Replace("\"", "") + "\"*")));
+            cmd.Parameters.AddWithValue("$external", "%" + (query ?? "").Trim()[..Math.Min((query ?? "").Trim().Length, 100)] + "%");
         }
         cmd.Parameters.AddWithValue("$lim", limit);
         try { return ReadRows(cmd); }

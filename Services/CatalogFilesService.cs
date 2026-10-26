@@ -226,7 +226,11 @@ public static class CatalogFilesService
                         entry.LastVerifiedUtc,entry.ImportedUtc,entry.UpdatedUtc,entry.Status
                     };
                     for(int i=0;i<columns.Length;i++)
-                        sheet.Cell(row,i+1).SetValue(SafeExcelText(columns[i]));
+                    {
+                        if(i==7 && entry.Price.HasValue)
+                            sheet.Cell(row,i+1).SetValue((double)entry.Price.Value);
+                        else sheet.Cell(row,i+1).SetValue(SafeExcelText(columns[i]));
+                    }
                     row++;
                 }
                 var header=sheet.Range(1,1,1,Headers.Length);
@@ -237,6 +241,7 @@ public static class CatalogFilesService
                 if (row>2) sheet.Range(1,1,row-1,Headers.Length).SetAutoFilter();
                 for (int i=1;i<=Headers.Length;i++)
                     sheet.Column(i).Width=i is 3 or 7 or 10 or 11 or 12 ? 40 : 22;
+                sheet.Column(8).Style.NumberFormat.Format="#,##0.00";
                 sheet.Column(8).Style.Alignment.Horizontal=XLAlignmentHorizontalValues.Right;
                 workbook.SaveAs(temp);
             }
