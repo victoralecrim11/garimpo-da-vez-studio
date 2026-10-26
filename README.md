@@ -216,3 +216,7 @@ quando a opção correspondente estiver ativa.
 produtos. Você precisa importar seu arquivo CSV/XLSX ou coletar dados de
 endpoints oficiais autorizados. Não importa automaticamente datasets de
 terceiros sem verificar licenças e condições de uso.
+
+### Importar catálogo histórico real (MeLi 2019)
+
+Acesse **[Como baixar e importar a amostra MeLi 2019](Docs/catalogo-publico-meli-2019.md)**. A ferramenta `tools/catalogo/baixar_amostra_meli.py` obtém nomes e classificações históricos reais e gera um CSV para importação pelo `Tools/CatalogImport` ou pela aba 07. Não contém preços atuais, anúncios válidos ou links de afiliado. O dataset não é republicado no GitHub; a importação é local.
