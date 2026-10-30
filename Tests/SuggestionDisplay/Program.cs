@@ -134,6 +134,29 @@ internal static class Program
             failures++;
         }
 
+        var historical = new SidebarSearchItem {
+            CatalogReference = new GarimpoDaVezStudio.Data.CatalogEntry {
+                Name="Perfume de hombre",Category="MeLi 2019 / PERFUMES",
+                SourceFile="meli_2019_es_12000.csv"
+            }
+        };
+        if (!GarimpoDaVezStudio.Services.SidebarSearchItem.IsHistoricalSpanish(historical.CatalogReference) ||
+            !historical.OriginLabel.Contains("HISTÓRICA", StringComparison.Ordinal) ||
+            historical.ProductTitle != "Perfume de hombre")
+        {
+            Console.Error.WriteLine("Falha: lista lateral não sinaliza origem histórica espanhola.");
+            failures++;
+        }
+        var brazil = new SidebarSearchItem {
+            OfficialSuggestion = new ProductNameSuggestion {
+                Name="Perfume masculino brasileiro",Kind="listing",Id="MLB123456789"
+            }
+        };
+        if (!brazil.OriginLabel.Contains("BR") || brazil.ProductTitle!="Perfume masculino brasileiro")
+        {
+            Console.Error.WriteLine("Falha: sugestão brasileira sem origem legível.");
+            failures++;
+        }
         if (failures > 0) return 1;
         Console.WriteLine("16 verificações de sugestões, busca lateral e seleção aprovadas.");
         return 0;

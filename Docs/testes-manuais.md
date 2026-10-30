@@ -141,3 +141,17 @@ endpoints de marketplace, API do Pinterest e automação da interface do ChatGPT
 - [ ] Deixar Excel automático ativo, importar arquivo e aguardar sincronização em %LOCALAPPDATA%.
 - [ ] Abrir Excel automático para bloquear gravação e repetir atualização: SQLite deve permanecer intacto.
 - [ ] Verificar que arquivo do Python `automation/data/produtos.xlsx` não foi tratado como base transacional do Studio.
+
+## Pesquisa brasileira, cartões responsivos e fotos oficiais (30/10/2026)
+
+- [ ] Arrastar a divisória lateral, alterar tamanho da janela e conferir títulos completos em duas linhas e tooltip.
+- [ ] Pesquisar "perf" e conferir origem de resultados brasileiros; ativar a opção histórica ES e verificar que os nomes importados de 2019 continuam identificados sem tradução.
+- [ ] Usar pesquisa na aba 07 e confirmar que o campo ocupa a largura disponível, com ação clara de limpar a busca.
+- [ ] Selecionar anúncio com imagem oficial: a aba 07 mostra prévia e a aba 01 pode mostrar a mesma imagem sem criar arquivo local automaticamente.
+- [ ] Selecionar referência histórica sem ID: nenhum anúncio, URL ou fotografia é fabricado.
+- [ ] Selecionar produto catálogo oficial MLBU com `pictures`: exibir imagem mas NÃO afirmar que a URL é de anúncio comissionado.
+- [ ] Quando a API retornar 401/403 ou não enviar imagem, exibir mensagem de indisponibilidade.
+- [ ] Alterar rapidamente a seleção de anúncios: foto atrasada não deve substituir a prévia do novo produto.
+- [ ] Abrir a aba 03, clicar no quadro vazio e verificar o Explorer; cancelar sem criar produto.
+- [ ] Escolher imagem JPG/PNG válida: exibição atualizada nas abas 01 e 03; verificar se o arquivo foi salvo só após validação.
+- [ ] Verificar que um `permalink` oficial aparece no campo URL original, nunca é classificado como link de afiliado.

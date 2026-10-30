@@ -220,3 +220,15 @@ terceiros sem verificar licenças e condições de uso.
 ### Importar catálogo histórico real (MeLi 2019)
 
 Acesse **[Como baixar e importar a amostra MeLi 2019](Docs/catalogo-publico-meli-2019.md)**. A ferramenta `tools/catalogo/baixar_amostra_meli.py` obtém nomes e classificações históricos reais e gera um CSV para importação pelo `Tools/CatalogImport` ou pela aba 07. Não contém preços atuais, anúncios válidos ou links de afiliado. O dataset não é republicado no GitHub; a importação é local.
+
+## Busca brasileira, fotos oficiais e layout responsivo (30/10/2026)
+
+- A lateral **PRODUTOS** usa `SplitContainer`: você pode arrastar a divisória para ampliar a área de resultados. Os itens aparecem em cartões com a origem separada do título, texto em até duas linhas e tooltip com o nome completo.
+- A busca da lateral e a busca da aba **07 · Catálogo híbrido** priorizam registros brasileiros e locais. A base histórica **MeLi 2019 em espanhol** fica **oculta por padrão**, mas pode ser exibida pelas opções **Exibir referências históricas em espanhol (2019)** ou **Incluir base histórica em espanhol (2019)**. Os registros originais NÃO são alterados ou traduzidos.
+- As consultas oficiais existentes já usam o site **MLB (Brasil)**: `/sites/MLB/search`, `/products/search?site_id=MLB`, `/categories/...` e `/sites/MLB/domain_discovery/search`. Não existe promessa de nomes em português para datasets históricos importados de outros países. Restrições 401/403 continuam sendo respeitadas.
+- A aba **07 · Catálogo híbrido** tem uma barra de busca com largura adaptativa, botão para limpar o texto e um painel de prévia. Ao selecionar um anúncio (ID `MLB...`) ou referência oficial de produto, o Studio tenta carregar imagem `pictures`/`thumbnail` disponível pela API. Nenhum arquivo é salvo automaticamente para divulgação. Referências históricas sem identificação oficial não têm imagem associada.
+- Ao selecionar um anúncio oficial, os detalhes podem disponibilizar o campo `permalink`: a **URL pública do anúncio brasileiro**, não um link de afiliado. A Central/Barra de Afiliados continua responsável por gerar o link comissionado para confirmação humana.
+- Na aba **03 · Estúdio IA**, clique na fotografia de referência ou em **Escolher foto de referência...** para abrir o Explorer. O seletor é aberto **antes** de validar/salvar o cadastro; após escolher uma imagem, é necessário ter um produto válido. As prévias das abas 01 e 03 são atualizadas. Formatos suportados neste momento: JPG, JPEG, PNG e BMP.
+- A prévia de imagens remotas vem apenas de HTTPS `*.mlstatic.com`, com limites de tamanho e verificação de validade de conteúdo. Quando não houver URL de imagem ou a API negar acesso, a tela informa que a imagem não está disponível em vez de inventar uma miniatura.
+
+**Verificação:** além dos testes do adaptador Python e do banco SQLite, há um smoke test que abre a janela WinForms, verifica o divisor responsivo, as abas e a foto clicável. O uso real com OAuth e os arquivos locais da conta deve ser homologado na máquina Windows antes de publicação comercial.

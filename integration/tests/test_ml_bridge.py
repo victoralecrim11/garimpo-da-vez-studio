@@ -42,6 +42,7 @@ def _api_get(path, params=None, token=""):
         return {"id":"MLB123456789", "category_id":"MLB123",
                 "title":"Abajur LED oficial", "status":"active",
                 "price":88.70, "currency_id":"BRL",
+                "pictures":[{"secure_url":"https://http2.mlstatic.com/anuncio.jpg"}],
                 "permalink":"https://www.mercadolivre.com.br/item/MLB123456789"}
     if path == "/items/MLB123456789/description":
         return {"plain_text":"Luminária LED com estrutura metálica, conforme anúncio."}
@@ -51,6 +52,7 @@ def _api_get(path, params=None, token=""):
         raise DiscoveryError("HTTP 403")
     if path == "/products/MLBU300001":
         return {"id":"MLBU300001", "name":"Luminária de catálogo", "category_id":"MLB123",
+                "pictures":[{"secure_url":"https://http2.mlstatic.com/catalogo.jpg"}],
                 "short_description":{"type":"text","content":"Luminária de catálogo com iluminação ajustável."}}
     if path == "/products/MLBU300002":
         return {"id":"MLBU300002", "attributes":[{"name":"Cor","value_name":"Branco"},
@@ -227,6 +229,24 @@ if __name__ == "__main__":
         self.assertNotEqual(code, 0)
         self.assertFalse(obj["ok"])
 
+    def test_enrich_official_listing_image_and_public_permalink(self):
+        code, obj = self.run_bridge("enrich", "--kind", "listing",
+                                    "--item-id", "MLB123456789", "--query", "Abajur")
+        self.assertEqual(code, 0)
+        entry = obj["suggestions"][0]
+        self.assertEqual(entry["thumbnail"], "https://http2.mlstatic.com/anuncio.jpg")
+        self.assertEqual(entry["permalink"],
+                         "https://www.mercadolivre.com.br/item/MLB123456789")
+        self.assertNotIn("affiliate", entry)
+
+    def test_enrich_catalog_image_without_listing_url(self):
+        code, obj = self.run_bridge("enrich", "--kind", "catalog",
+                                    "--item-id", "MLBU300001", "--query", "Luminária")
+        self.assertEqual(code, 0)
+        entry = obj["suggestions"][0]
+        self.assertEqual(entry["thumbnail"], "https://http2.mlstatic.com/catalogo.jpg")
+        self.assertEqual(entry["permalink"], "")
+
     def test_enrich_listing_gets_official_description_and_category(self):
         code, obj = self.run_bridge(
             "enrich", "--kind", "listing", "--item-id", "MLB123456789",
@@ -249,7 +269,7 @@ if __name__ == "__main__":
         self.assertEqual(row["description_source"], "resumo_catalogo")
         self.assertEqual(row["description"], "Luminária de catálogo com iluminação ajustável.")
         self.assertEqual(obj["categories"][0]["name"], "Casa")
-        self.assertNotIn("permalink", row)
+        self.assertEqual(row["permalink"], "")
 
     def test_enrich_catalog_ficha_tecnica_uses_only_api_attributes(self):
         code, obj = self.run_bridge(

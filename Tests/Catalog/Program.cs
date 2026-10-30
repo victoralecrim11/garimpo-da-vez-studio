@@ -29,6 +29,18 @@ try
     Check(abajur.Price==129.90m,"preço pt-BR");
     Check(catalog.Search("iluminacao").Any(),"FTS5 sem acentos ou fallback");
     Check(CatalogFilesService.Import(catalog,csv)==2 && catalog.Count()==2,"deduplicação idempotente");
+    var spanish = new CatalogEntry {
+        Kind="offline",Origin="csv",Name="Perfume Espanhol",
+        Category="MeLi 2019 / PERFUMES",SourceFile="meli_2019_es_12000.csv"
+    };
+    catalog.UpsertBatch(new[]{spanish},"Base histórica ES");
+    Check(catalog.Search("Perfume",includeHistorical:true).Count==1,
+        "base histórica visível ao habilitar filtro");
+    Check(catalog.Search("Perfume",includeHistorical:false).Count==0,
+        "base histórica oculta por padrão em busca brasileira");
+    Check(catalog.Search("",includeHistorical:false).Count==2,
+        "busca vazia não exibe referências históricas");
+
 
     var item=new CatalogEntry{
         Kind="listing",Origin="api",ExternalId="MLB123456789",Name="Abajur LED oficial",
@@ -57,7 +69,7 @@ try
     Check(saved.AffiliateConfirmed && saved.AffiliateUrl=="https://meli.la/Exemplo123",
         "atualização não sobrescreve comissão");
     Check(saved.Price==90.00m,"preço atualizado pela API");
-    Check(catalog.Count()==3,"mesmo MLB não duplica");
+    Check(catalog.Count()==4,"mesmo MLB não duplica");
     Check(catalog.Search("MLB123456789").Count==1,"busca pelo ID oficial indexado");
 
     var xlsx=Path.Combine(temp,"planilha.xlsx");
@@ -82,7 +94,7 @@ try
     {
         var sheet=report.Worksheet("Catálogo");
         Check(sheet.Cell("A1").GetString()=="Tipo","cabeçalho exportado");
-        Check(sheet.RangeUsed()!.RowCount()>=5,"todas as linhas exportadas");
+        Check(sheet.RangeUsed()!.RowCount()>=6,"todas as linhas exportadas");
         Check(sheet.RowsUsed().Any(r=>r.CellsUsed().Any(c=>c.GetString()=="Link confirmado")),
             "exporta status de comissão confirmado");
         var priceRow=sheet.RowsUsed().FirstOrDefault(r=>r.Cell(3).GetString()=="Abajur LED verificado novamente");
@@ -98,7 +110,7 @@ try
     try{CatalogFilesService.Import(catalog,Path.Combine(temp,"sem-nome.csv"));}
     catch(InvalidDataException){bad=true;}
     Check(bad,"planilha sem nome é recusada");
-    Check(catalog.Count()==4,"erro mantém dados anteriores");
+    Check(catalog.Count()==5,"erro mantém dados anteriores");
 
     Console.WriteLine($"Testes do catálogo híbrido: {checks} verificações aprovadas.");
     return 0;

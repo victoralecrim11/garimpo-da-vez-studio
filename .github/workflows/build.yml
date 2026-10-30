@@ -35,5 +35,7 @@ jobs:
         run: dotnet run --project Tests/SuggestionDisplay/SuggestionDisplayTests.csproj -c Release
       - name: Test hybrid catalog CSV, Excel and SQLite
         run: dotnet run --project Tests/Catalog/CatalogTests.csproj -c Release
+      - name: Verificar abertura e layout responsivo do WinForms
+        run: dotnet run --project Tests/LayoutSmoke/LayoutSmoke.csproj -c Release
       - name: Compilar importador CLI de catálogo
         run: dotnet build tools/CatalogImport/CatalogImport.csproj -c Release
