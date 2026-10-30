@@ -25,7 +25,7 @@ public sealed partial class MainForm
         var wrap = new Panel { Dock = DockStyle.Fill, BackColor = Surface };
         wrap.Controls.Add(_products);
         wrap.Controls.Add(_sidebarSearchStatus);
-        sidebar.Controls.Add(wrap, 0, 2);
+        sidebar.Controls.Add(wrap, 0, 3);
 
         _sidebarSearchTimer.Tick += async (_, _) =>
         {

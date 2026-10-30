@@ -129,23 +129,34 @@ public sealed partial class MainForm : Form
         footer.Controls.Add(_footer);
         shell.Controls.Add(footer, 0, 2);
 
-        var main = new TableLayoutPanel {
+        var main = new SplitContainer {
             Dock = DockStyle.Fill, BackColor = Background,
-            ColumnCount = 2, Padding = new Padding(12, 0, 12, 12)
+            Orientation = Orientation.Vertical, SplitterWidth = 7,
+            Padding = new Padding(12, 0, 12, 12)
         };
-        main.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 300));
-        main.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         shell.Controls.Add(main, 0, 1);
+        Shown += (_, _) => {
+            var available = main.ClientSize.Width;
+            if (available > 280 + 650 + main.SplitterWidth)
+            {
+                // Os mínimos só podem ser configurados com largura real.
+                main.SplitterDistance = Math.Clamp(415, 280,
+                    available - 650 - main.SplitterWidth);
+                main.Panel1MinSize = 280;
+                main.Panel2MinSize = 650;
+            }
+        };
 
         var sidebar = new TableLayoutPanel {
             Dock = DockStyle.Fill, BackColor = Surface, Padding = new Padding(12),
-            ColumnCount = 1, RowCount = 4
+            ColumnCount = 1, RowCount = 5
         };
-        sidebar.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
-        sidebar.RowStyles.Add(new RowStyle(SizeType.Absolute, 52));
+        sidebar.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
+        sidebar.RowStyles.Add(new RowStyle(SizeType.Absolute, 56));
+        sidebar.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
         sidebar.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         sidebar.RowStyles.Add(new RowStyle(SizeType.Absolute, 58));
-        main.Controls.Add(sidebar, 0, 0);
+        main.Panel1.Controls.Add(sidebar);
 
         var title = new Label {
             Text = "PRODUTOS", ForeColor = Foreground,
@@ -154,18 +165,28 @@ public sealed partial class MainForm : Form
         };
         sidebar.Controls.Add(title, 0, 0);
 
-        _search.Dock = DockStyle.Fill;
-        _search.PlaceholderText = "Buscar produtos salvos ou online...";
-        StyleInput(_search);
+        _search.PlaceholderText = "Pesquisar produtos brasileiros...";
         _search.TextChanged += (_, _) => SidebarSearchTextChanged();
-        sidebar.Controls.Add(_search, 0, 1);
+        sidebar.Controls.Add(CreateSearchControl(_search), 0, 1);
+        _sidebarIncludeHistorical.Text = "Exibir referências históricas em espanhol (2019)";
+        _sidebarIncludeHistorical.ForeColor = Muted;
+        _sidebarIncludeHistorical.BackColor = Surface;
+        _sidebarIncludeHistorical.Dock = DockStyle.Fill;
+        _sidebarIncludeHistorical.Font = new Font("Segoe UI", 8.3f);
+        _sidebarIncludeHistorical.CheckedChanged += (_, _) => ReloadProducts(_current?.Id);
+        sidebar.Controls.Add(_sidebarIncludeHistorical, 0, 2);
 
         _products.Dock = DockStyle.Fill;
         _products.BackColor = Surface;
         _products.ForeColor = Foreground;
         _products.BorderStyle = BorderStyle.None;
-        _products.Font = new Font("Segoe UI", 11f);
-        _products.ItemHeight = 37;
+        _products.Font = new Font("Segoe UI", 10f);
+        _products.DrawMode = DrawMode.OwnerDrawFixed;
+        _products.ItemHeight = 70;
+        _products.IntegralHeight = false;
+        _products.DrawItem += DrawSidebarProduct;
+        _products.MouseMove += SidebarProductHover;
+        _products.MouseLeave += (_, _) => _sidebarTooltip.Hide(_products);
         // Cada item mantém seu tipo (produto salvo ou sugestão oficial).
         // ToString exibe a origem para não confundir sugestões com cadastros.
         _products.DisplayMember = "";
@@ -182,12 +203,12 @@ public sealed partial class MainForm : Form
         };
         actions.Controls.Add(ButtonOf("+ Novo", NewProduct, true, 115));
         actions.Controls.Add(ButtonOf("Salvar", () => SaveCurrent(), false, 115));
-        sidebar.Controls.Add(actions, 0, 3);
+        sidebar.Controls.Add(actions, 0, 4);
 
         _tabs.Dock = DockStyle.Fill;
         _tabs.Font = new Font("Segoe UI Semibold", 10f);
         _tabs.Padding = new Point(22, 11);
-        main.Controls.Add(_tabs, 1, 0);
+        main.Panel2.Controls.Add(_tabs);
         _tabs.TabPages.Add(BuildProductTab());
         _tabs.TabPages.Add(BuildMarketplaceTab());
         _tabs.TabPages.Add(BuildStudioTab());
@@ -827,7 +848,13 @@ public sealed partial class MainForm : Form
         cols.Controls.Add(left, 0, 0);
         left.Controls.Add(Section("FOTO DE REFERÊNCIA"));
         _studioPreview.Size = new Size(380, 445);
+        _studioPreview.Cursor = Cursors.Hand;
+        _studioPreview.Click += (_, _) => ImportOriginal();
+        _studioPreview.AccessibleName = "Selecionar foto de referência";
+        var imageHint = Note("Clique na imagem ou use o botão abaixo para escolher uma foto local.");
         left.Controls.Add(_studioPreview);
+        left.Controls.Add(imageHint);
+        left.Controls.Add(ButtonOf("Escolher foto de referência...", ImportOriginal, true, 300));
         _tabs.SelectedIndexChanged += (_, _) =>
         {
             if (_tabs.SelectedTab == page)
@@ -963,7 +990,7 @@ public sealed partial class MainForm : Form
         var entries = products.Select(p => new SidebarSearchItem { LocalProduct = p }).ToList();
         if (query.Length >= 2)
         {
-            foreach (var reference in _catalog.Search(query, 25))
+            foreach (var reference in _catalog.Search(query, 25, includeHistorical: _sidebarIncludeHistorical.Checked))
             {
                 if (products.Any(p =>
                     (!string.IsNullOrWhiteSpace(reference.ExternalId) && p.ExternalId == reference.ExternalId) ||
@@ -973,8 +1000,12 @@ public sealed partial class MainForm : Form
             }
         }
         if (query.Length >= 3)
-            entries.AddRange(_sidebarOfficialSuggestions.Select(s =>
-                new SidebarSearchItem { OfficialSuggestion = s }));
+            entries.AddRange(_sidebarOfficialSuggestions
+                .Where(s => !entries.Any(e =>
+                    (s.Id.Length > 0 && e.CatalogReference?.ExternalId == s.Id) ||
+                    string.Equals(e.ProductTitle, s.SuggestedName,
+                        StringComparison.OrdinalIgnoreCase)))
+                .Select(s => new SidebarSearchItem { OfficialSuggestion = s }));
 
         _reloadingProducts = true;
         _products.BeginUpdate();
@@ -1081,6 +1112,7 @@ public sealed partial class MainForm : Form
         _suspendProductCategoryEvents = false;
         FillNicheSuggestions(""); _description.Clear();
         _affiliateUrl.Clear(); _listingUrl.Clear(); _originalPath.Clear();
+        _productPhotoRevision++;
         FileStudioService.ShowImage(_originalPreview, null);
         FileStudioService.ShowImage(_studioPreview, null);
         _prompt.Clear();
@@ -1160,9 +1192,11 @@ public sealed partial class MainForm : Form
 
     private void ImportOriginal()
     {
-        if (!SaveCurrent() || _current is null) return;
+        // Abrir o explorador primeiro; só pedir que o produto seja salvo depois
+        // de uma seleção. Antes, um formulário incompleto impedia o diálogo.
         using var picker = OpenImageDialog();
-        if (picker.ShowDialog() != DialogResult.OK) return;
+        if (picker.ShowDialog(this) != DialogResult.OK) return;
+        if (!SaveCurrent() || _current is null) return;
         try
         {
             _current.OriginalImagePath = FileStudioService.CopyOriginal(_current, picker.FileName);
@@ -1170,7 +1204,8 @@ public sealed partial class MainForm : Form
             _repository.AddLog(_current.Id, "Imagem original", "Imagem de referência importada");
             _originalPath.Text = _current.OriginalImagePath;
             FileStudioService.ShowImage(_originalPreview, _current.OriginalImagePath);
-            _footer.Text = "Imagem original importada.";
+            FileStudioService.ShowImage(_studioPreview, _current.OriginalImagePath);
+            _footer.Text = "Imagem de referência atualizada no Produto e no Estúdio IA.";
         }
         catch (Exception ex) { ShowError(ex); }
     }
