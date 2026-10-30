@@ -10,6 +10,8 @@ static void Run()
     Directory.CreateDirectory(directory);
     try
     {
+        // Reproduz a inicialização real: runner Windows limpo não possui a pasta LocalAppData.
+        AppPaths.EnsureDirectories();
         var db = new StudioRepository(Path.Combine(directory,"smoke.sqlite"));
         db.Initialize();
         using var window = new MainForm(db) { ShowInTaskbar = false, Opacity = 0 };
