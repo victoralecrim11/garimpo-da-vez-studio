@@ -23,41 +23,44 @@ public sealed partial class MainForm
     {
         var page = Page("07 · Catálogo híbrido");
         var root = new TableLayoutPanel {
-            Dock=DockStyle.Fill,ColumnCount=1,RowCount=4,BackColor=Surface,Padding=new Padding(12)
+            Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 4,
+            BackColor = Surface, Padding = new Padding(12)
         };
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute,66));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute,185));
-        root.RowStyles.Add(new RowStyle(SizeType.Percent,100));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute,76));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 72));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 158));
+        root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 90));
         page.Controls.Add(root);
 
-        var title = new Label { Text="CATÁLOGO INTELIGENTE · CSV / EXCEL / MERCADO LIVRE",
-            ForeColor=Foreground,Font=new Font("Segoe UI Semibold",15f,FontStyle.Bold),
-            Dock=DockStyle.Fill,TextAlign=ContentAlignment.MiddleLeft };
-        root.Controls.Add(title,0,0);
+        var introduction = new TableLayoutPanel {
+            Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2,
+            BackColor = Surface, Margin = new Padding(4, 0, 0, 2)
+        };
+        introduction.RowStyles.Add(new RowStyle(SizeType.Absolute, 39));
+        introduction.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        introduction.Controls.Add(new Label {
+            Text = "CATÁLOGO INTELIGENTE", ForeColor = Foreground,
+            Font = new Font("Segoe UI Semibold", 16f, FontStyle.Bold),
+            TextAlign = ContentAlignment.BottomLeft, Dock = DockStyle.Fill
+        }, 0, 0);
+        introduction.Controls.Add(new Label {
+            Text = "Produtos salvos, anúncios brasileiros e importações de planilhas",
+            ForeColor = Muted, Font = new Font("Segoe UI", 9.2f),
+            Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft
+        }, 0, 1);
+        root.Controls.Add(introduction, 0, 0);
 
         var header = new TableLayoutPanel {
-            Dock=DockStyle.Fill,ColumnCount=1,RowCount=2,BackColor=Surface
+            Name = "CatalogHeader", Dock = DockStyle.Fill,
+            ColumnCount = 1, RowCount = 2, BackColor = Surface, Margin = Padding.Empty
         };
-        header.RowStyles.Add(new RowStyle(SizeType.Absolute,50));
-        header.RowStyles.Add(new RowStyle(SizeType.Percent,100));
-        _catalogQuery.PlaceholderText="Buscar produtos, categoria ou código MLB...";
-        _catalogQuery.MaxLength=100;
-        header.Controls.Add(CreateSearchControl(_catalogQuery),0,0);
-        var commands=new FlowLayoutPanel {
-            Dock=DockStyle.Fill,FlowDirection=FlowDirection.LeftToRight,WrapContents=true,
-            BackColor=Surface,Padding=new Padding(2)
-        };
-        commands.Controls.Add(ButtonOf("Importar CSV/XLSX",async ()=>await ImportCatalogFileAsync(),true,170));
-        commands.Controls.Add(ButtonOf("Reunir salvos",async ()=>await SyncStudioCatalogAsync(),false,145));
-        commands.Controls.Add(ButtonOf("Exportar Excel",async ()=>await ExportCatalogAsync(),false,152));
-        commands.Controls.Add(ButtonOf("Atualizar anúncio",async ()=>await VerifyCatalogEntryAsync(),false,167));
-        commands.Controls.Add(ButtonOf("Usar no Studio",PromoteCatalogEntry,false,148));
-        commands.Controls.Add(ButtonOf("Confirmar link",ConfirmCatalogAffiliate,false,150));
-        commands.Controls.Add(ButtonOf("Mais vendidos · categoria",async ()=>await CollectHighlightsAsync(),false,205));
-        commands.Controls.Add(ButtonOf("Abrir planilha",OpenAutoCatalogExcel,false,150));
-        header.Controls.Add(commands,0,1);
-        root.Controls.Add(header,0,1);
+        header.RowStyles.Add(new RowStyle(SizeType.Absolute, 54));
+        header.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        _catalogQuery.PlaceholderText = "Pesquisar nome, categoria ou código MLB...";
+        _catalogQuery.MaxLength = 100;
+        header.Controls.Add(BuildCatalogSearchRow(), 0, 0);
+        header.Controls.Add(BuildCatalogActions(), 0, 1);
+        root.Controls.Add(header, 0, 1);
 
         _catalogGrid.Dock=DockStyle.Fill;
         _catalogGrid.BackgroundColor=Card;
@@ -94,27 +97,34 @@ public sealed partial class MainForm
         root.Controls.Add(catalogBody,0,2);
         _catalogGrid.SelectionChanged += (_, _) => OnCatalogPhotoSelectionChanged();
 
-        var bottom = new Panel {Dock=DockStyle.Fill,BackColor=Surface};
-        _catalogInfo.ForeColor=Muted;
-        _catalogInfo.AutoEllipsis=true;
-        _catalogInfo.Dock=DockStyle.Fill;
-        _catalogInfo.Padding=new Padding(4,3,0,0);
-        _catalogInfo.Text="Referências offline não comprovam preço ou disponibilidade. Links requerem confirmação humana.";
-        _catalogIncludeHistorical.Text="Incluir base histórica em espanhol (2019)";
-        _catalogIncludeHistorical.ForeColor=Muted;
-        _catalogIncludeHistorical.AutoSize=true;
-        _catalogIncludeHistorical.Dock=DockStyle.Top;
-        _catalogIncludeHistorical.CheckedChanged+=(_,_)=>RefreshCatalog();
-        bottom.Controls.Add(_catalogIncludeHistorical);
-        _autoCatalogExcel.Text="Atualizar catálogo Excel automaticamente após alterações";
-        _autoCatalogExcel.ForeColor=Foreground;
-        _autoCatalogExcel.BackColor=Surface;
-        _autoCatalogExcel.AutoSize=true;
-        _autoCatalogExcel.Checked=true;
-        _autoCatalogExcel.Dock=DockStyle.Bottom;
-        bottom.Controls.Add(_catalogInfo);
-        bottom.Controls.Add(_autoCatalogExcel);
-        root.Controls.Add(bottom,0,3);
+        var bottom = new TableLayoutPanel {
+            Dock = DockStyle.Fill, BackColor = Surface, ColumnCount = 1, RowCount = 3,
+            Padding = new Padding(5, 3, 3, 0), Margin = Padding.Empty
+        };
+        bottom.RowStyles.Add(new RowStyle(SizeType.Absolute, 26));
+        bottom.RowStyles.Add(new RowStyle(SizeType.Absolute, 26));
+        bottom.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        _catalogIncludeHistorical.Text = "Incluir referências históricas em espanhol (2019)";
+        _catalogIncludeHistorical.ForeColor = Muted;
+        _catalogIncludeHistorical.BackColor = Surface;
+        _catalogIncludeHistorical.Dock = DockStyle.Fill;
+        _catalogIncludeHistorical.Font = new Font("Segoe UI", 9f);
+        _catalogIncludeHistorical.CheckedChanged += (_,_) => RefreshCatalog();
+        bottom.Controls.Add(_catalogIncludeHistorical, 0, 0);
+        _autoCatalogExcel.Text = "Manter catálogo Excel atualizado automaticamente";
+        _autoCatalogExcel.ForeColor = Foreground;
+        _autoCatalogExcel.BackColor = Surface;
+        _autoCatalogExcel.Checked = true;
+        _autoCatalogExcel.Dock = DockStyle.Fill;
+        _autoCatalogExcel.Font = new Font("Segoe UI", 9f);
+        bottom.Controls.Add(_autoCatalogExcel, 0, 1);
+        _catalogInfo.ForeColor = Muted;
+        _catalogInfo.AutoEllipsis = true;
+        _catalogInfo.Dock = DockStyle.Fill;
+        _catalogInfo.Font = new Font("Segoe UI", 8.5f);
+        _catalogInfo.Text = "Referências offline não comprovam preço ou disponibilidade.";
+        bottom.Controls.Add(_catalogInfo, 0, 2);
+        root.Controls.Add(bottom, 0, 3);
 
         _catalogQuery.TextChanged+=(_,_)=>{_catalogSearchTimer.Stop();_catalogSearchTimer.Start();};
         _catalogSearchTimer.Tick+=(_,_)=>{_catalogSearchTimer.Stop();RefreshCatalog();};

@@ -33,7 +33,35 @@ static void Run()
         var search = Traverse(window).OfType<ListBox>()
             .FirstOrDefault(x=>x.DrawMode==DrawMode.OwnerDrawFixed && x.ItemHeight>=65);
         if (search is null) throw new Exception("Resultados laterais não têm layout legível.");
-        Console.WriteLine("5 verificações de criação, responsividade, abas, imagem e lista aprovadas.");
+        tabs.SelectedIndex = 6;
+        Application.DoEvents();
+        var toolbar = Traverse(window).OfType<TableLayoutPanel>()
+            .Single(x=>x.Name=="CatalogActionsToolbar");
+        var buttons = toolbar.Controls.OfType<Button>().ToList();
+        if (toolbar.RowCount!=2 || toolbar.ColumnCount!=4 || buttons.Count!=8)
+            throw new Exception("Ações do catálogo precisam ocupar duas linhas de quatro colunas.");
+        foreach(var b in buttons)
+        {
+            var cell=toolbar.GetPositionFromControl(b);
+            if (b.Width<95 || b.Height<32 || cell.Column<0 || cell.Column>3 ||
+                cell.Row<0 || cell.Row>1)
+                throw new Exception("Botões do catálogo estão comprimidos ou fora do grid.");
+        }
+        var searchField = Traverse(window).Single(x=>x.Name=="CatalogSearchField");
+        if (searchField.Width<300 || searchField.Width>760 || searchField.Height<32)
+            throw new Exception($"Campo de pesquisa desproporcional: {searchField.Size}.");
+        var alignedDiff=Math.Abs(searchField.PointToScreen(Point.Empty).X -
+            buttons.Single(x=>toolbar.GetPositionFromControl(x).Column==0 &&
+                              toolbar.GetPositionFromControl(x).Row==0)
+                .PointToScreen(Point.Empty).X);
+        if (alignedDiff>10)
+            throw new Exception($"Busca e ações desalinhadas por {alignedDiff}px.");
+
+        window.Width=1900;
+        Application.DoEvents();
+        if (searchField.Width>760 || buttons.Any(x=>x.Width<95))
+            throw new Exception("A busca cresceu excessivamente ou botões perderam largura.");
+        Console.WriteLine("8 verificações de layout, ações, busca responsiva e abertura aprovadas.");
         window.Close();
     }
     finally {try{Directory.Delete(directory,true);}catch(IOException){}}

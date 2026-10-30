@@ -140,7 +140,7 @@ public sealed partial class MainForm : Form
             if (available > 280 + 650 + main.SplitterWidth)
             {
                 // Os mínimos só podem ser configurados com largura real.
-                main.SplitterDistance = Math.Clamp(415, 280,
+                main.SplitterDistance = Math.Clamp(380, 280,
                     available - 650 - main.SplitterWidth);
                 main.Panel1MinSize = 280;
                 main.Panel2MinSize = 650;
@@ -152,7 +152,7 @@ public sealed partial class MainForm : Form
             ColumnCount = 1, RowCount = 5
         };
         sidebar.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
-        sidebar.RowStyles.Add(new RowStyle(SizeType.Absolute, 56));
+        sidebar.RowStyles.Add(new RowStyle(SizeType.Absolute, 58));
         sidebar.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
         sidebar.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         sidebar.RowStyles.Add(new RowStyle(SizeType.Absolute, 58));
