@@ -12,94 +12,64 @@ public sealed partial class MainForm
 
     private Control CreateSearchControl(TextBox input)
     {
-        // Uso compartilhado pelas buscas lateral e do catálogo.
-        // Cantos arredondados e foco são pintados pelo WinForms, sem CSS.
+        // Hierarquia simples e medidas estáveis: o ícone não depende de Paint
+        // nem de Region, que anteriormente o recortava em algumas resoluções.
         var frame = new Panel {
-            Dock = DockStyle.Fill, BackColor = Card, Padding = new Padding(2),
-            Margin = new Padding(0, 4, 0, 4)
-        };
-        bool focused = false;
-        void RoundEdges()
-        {
-            if (frame.Width <= 2 || frame.Height <= 2) return;
-            using var path = RoundedOutline(new Rectangle(0, 0, frame.Width, frame.Height), 11);
-            var oldRegion = frame.Region;
-            frame.Region = new Region(path);
-            oldRegion?.Dispose();
-        }
-        frame.Resize += (_, _) => RoundEdges();
-        frame.HandleCreated += (_, _) => RoundEdges();
-        frame.Paint += (_, e) =>
-        {
-            if (frame.Width < 8 || frame.Height < 8) return;
-            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            using var border = new Pen(focused ? Accent : Color.FromArgb(67, 85, 108), focused ? 1.8f : 1f);
-            using var path = RoundedOutline(new Rectangle(1, 1, frame.Width - 3, frame.Height - 3), 10);
-            e.Graphics.DrawPath(border, path);
+            Name = "SearchBarFrame", Dock = DockStyle.Fill,
+            BackColor = Color.FromArgb(67, 88, 115),
+            Padding = new Padding(1),
+            Margin = new Padding(0, 4, 0, 4),
+            MinimumSize = new Size(160, 42)
         };
         var layout = new TableLayoutPanel {
             Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 1,
-            BackColor = Card, Padding = new Padding(6, 1, 6, 1),
+            BackColor = Card, Padding = new Padding(5, 2, 5, 2),
             Margin = Padding.Empty
         };
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 30));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 35));
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 32));
-        var glass = new Panel { Dock = DockStyle.Fill, BackColor = Card, Cursor = Cursors.IBeam };
-        glass.Paint += (_, e) =>
-        {
-            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            using var pen = new Pen(Accent, 2f) { StartCap = LineCap.Round, EndCap = LineCap.Round };
-            var cx = glass.Width / 2 - 3;
-            var cy = glass.Height / 2 - 3;
-            e.Graphics.DrawEllipse(pen, cx - 6, cy - 6, 12, 12);
-            e.Graphics.DrawLine(pen, cx + 5, cy + 5, cx + 10, cy + 10);
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 35));
+
+        var icon = new Label {
+            Name = "SearchGlyph", Text = "\uE721",
+            Font = new Font("Segoe MDL2 Assets", 15f),
+            ForeColor = Accent, BackColor = Card,
+            TextAlign = ContentAlignment.MiddleCenter,
+            Dock = DockStyle.Fill, Cursor = Cursors.IBeam
         };
-        glass.Click += (_, _) => input.Focus();
+        icon.Click += (_, _) => input.Focus();
+
         input.BorderStyle = BorderStyle.None;
         input.BackColor = Card;
         input.ForeColor = Foreground;
-        input.Font = new Font("Segoe UI", 10.4f);
+        input.Font = new Font("Segoe UI", 10.5f);
         input.Dock = DockStyle.Fill;
-        input.Margin = new Padding(4, 9, 0, 0);
-        input.AccessibleDescription = "Digite o nome de produto, categoria ou código de anúncio";
-        input.GotFocus += (_, _) => { focused = true; frame.Invalidate(); };
-        input.LostFocus += (_, _) => { focused = false; frame.Invalidate(); };
+        input.Margin = new Padding(5, 10, 0, 0);
+        input.AccessibleDescription = "Digite o nome, categoria ou ID do produto";
+        input.GotFocus += (_, _) => frame.BackColor = Accent;
+        input.LostFocus += (_, _) => frame.BackColor = Color.FromArgb(67, 88, 115);
         var clear = new Button {
-            Text = "×", FlatStyle = FlatStyle.Flat, Dock = DockStyle.Fill,
-            Margin = Padding.Empty, Font = new Font("Segoe UI", 13f),
-            BackColor = Card, ForeColor = Muted, TabStop = false,
+            Name = "ClearSearch", Text = "×", Dock = DockStyle.Fill,
+            Margin = Padding.Empty, FlatStyle = FlatStyle.Flat,
+            Font = new Font("Segoe UI", 13f), BackColor = Card,
+            ForeColor = Muted, TabStop = false,
             Cursor = Cursors.Hand, AccessibleName = "Limpar pesquisa"
         };
         clear.FlatAppearance.BorderSize = 0;
-        clear.FlatAppearance.MouseOverBackColor = Color.FromArgb(47, 65, 90);
+        clear.FlatAppearance.MouseOverBackColor = Color.FromArgb(43, 62, 87);
         clear.Click += (_, _) => { input.Clear(); input.Focus(); };
         clear.Visible = !string.IsNullOrEmpty(input.Text);
         input.TextChanged += (_, _) => clear.Visible = !string.IsNullOrEmpty(input.Text);
-        input.KeyDown += (_, e) =>
-        {
+        input.KeyDown += (_, e) => {
             if (e.KeyCode != Keys.Escape) return;
             input.Clear();
-            e.Handled = true;
             e.SuppressKeyPress = true;
         };
-        layout.Controls.Add(glass, 0, 0);
+        layout.Controls.Add(icon, 0, 0);
         layout.Controls.Add(input, 1, 0);
         layout.Controls.Add(clear, 2, 0);
         frame.Controls.Add(layout);
         return frame;
-    }
-
-    private static GraphicsPath RoundedOutline(Rectangle bounds, int radius)
-    {
-        var path = new GraphicsPath();
-        var diameter = Math.Min(radius * 2, Math.Max(2, Math.Min(bounds.Width, bounds.Height)));
-        path.AddArc(bounds.Left, bounds.Top, diameter, diameter, 180, 90);
-        path.AddArc(bounds.Right - diameter, bounds.Top, diameter, diameter, 270, 90);
-        path.AddArc(bounds.Right - diameter, bounds.Bottom - diameter, diameter, diameter, 0, 90);
-        path.AddArc(bounds.Left, bounds.Bottom - diameter, diameter, diameter, 90, 90);
-        path.CloseFigure();
-        return path;
     }
 
     private void DrawSidebarProduct(object? sender, DrawItemEventArgs e)

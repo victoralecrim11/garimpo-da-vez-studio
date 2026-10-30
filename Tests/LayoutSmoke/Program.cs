@@ -61,7 +61,12 @@ static void Run()
         Application.DoEvents();
         if (searchField.Width>760 || buttons.Any(x=>x.Width<95))
             throw new Exception("A busca cresceu excessivamente ou botões perderam largura.");
-        Console.WriteLine("8 verificações de layout, ações, busca responsiva e abertura aprovadas.");
+        var searchIcon = Traverse(window).OfType<Label>()
+            .FirstOrDefault(x => x.Name == "SearchGlyph" && x.Visible &&
+                                 x.Text == "\uE721" && x.Width >= 25 && x.Height >= 25);
+        if (searchIcon is null)
+            throw new Exception("Ícone da lupa ausente ou comprimido na pesquisa.");
+        Console.WriteLine("9 verificações de layout, busca visível e abertura aprovadas.");
         window.Close();
     }
     finally {try{Directory.Delete(directory,true);}catch(IOException){}}

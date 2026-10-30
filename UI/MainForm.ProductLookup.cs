@@ -39,6 +39,10 @@ public sealed partial class MainForm
         buttons.Controls.Add(ButtonOf("Buscar sugestões", async () => await SearchProductNameAsync(force: true), true, 195));
         buttons.Controls.Add(ButtonOf("Preencher pela URL", async () => await PreviewProductUrlAsync(), false, 210));
         form.Controls.Add(buttons);
+        var officialRow = ButtonRow(465);
+        officialRow.Controls.Add(ButtonOf("Encontrar anúncio BR e URL", async () =>
+            await FindBrazilianListingAsync(), false, 287));
+        form.Controls.Add(officialRow);
         form.Controls.Add(_productNameSuggestions);
         form.Controls.Add(_productNameStatus);
         _fullProductTitleLink.Text = "Ver título original recebido na pesquisa";
