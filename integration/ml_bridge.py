@@ -94,11 +94,27 @@ def official_details(kind: str, identifier: str, name: str,
     description = ""
     description_source = ""
     warnings = []
+    thumbnail = ""
+    original_url = ""
 
     if kind == "listing":
         try:
             item = _api_get("/items/" + identifier, token=token)
             if isinstance(item, dict) and str(item.get("id")) == identifier:
+                pictures = item.get("pictures") or []
+                first = pictures[0] if pictures and isinstance(pictures[0], dict) else {}
+                thumbnail = safe_picture(first.get("secure_url") or first.get("url")
+                                         or item.get("secure_thumbnail")
+                                         or item.get("thumbnail") or "")
+                candidate = item.get("permalink")
+                if isinstance(candidate, str):
+                    parsed = urlsplit(candidate)
+                    domain = (parsed.hostname or "").lower()
+                    if (parsed.scheme == "https" and
+                        (domain == "mercadolivre.com.br" or
+                         domain.endswith(".mercadolivre.com.br")) and
+                        not parsed.username and not parsed.password):
+                        original_url = candidate
                 found = str(item.get("category_id") or "")
                 if re.fullmatch(r"MLB[0-9]{2,12}", found):
                     category, category_source = found, "anuncio"
@@ -117,6 +133,11 @@ def official_details(kind: str, identifier: str, name: str,
         try:
             product = _api_get("/products/" + identifier, token=token)
             if isinstance(product, dict) and str(product.get("id")) == identifier:
+                pictures = product.get("pictures") or []
+                first = pictures[0] if pictures and isinstance(pictures[0], dict) else {}
+                thumbnail = safe_picture(first.get("secure_url") or first.get("url")
+                                         or product.get("secure_thumbnail")
+                                         or product.get("thumbnail") or "")
                 found = str(product.get("category_id") or "")
                 if re.fullmatch(r"MLB[0-9]{2,12}", found):
                     category, category_source = found, "catalogo"
@@ -182,6 +203,7 @@ def official_details(kind: str, identifier: str, name: str,
     return {"ok": True, "origin": "detalhes_oficiais",
             "suggestions": [{
                 "id": identifier, "name": name, "kind": kind, "category_id": category,
+                "thumbnail": thumbnail, "permalink": original_url,
                 "category_source": category_source, "description": description,
                 "description_source": description_source, "verified": bool(category or description)
             }],

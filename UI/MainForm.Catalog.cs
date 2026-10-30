@@ -10,6 +10,7 @@ public sealed partial class MainForm
     private readonly CatalogRepository _catalog = new(AppPaths.DatabaseFile);
     private readonly DataGridView _catalogGrid = new();
     private readonly TextBox _catalogQuery = TextInput();
+    private readonly CheckBox _catalogIncludeHistorical = new();
     private readonly Label _catalogInfo = new();
     private readonly CheckBox _autoCatalogExcel = new();
     private readonly System.Windows.Forms.Timer _catalogExcelTimer = new() { Interval = 3500 };
@@ -25,7 +26,7 @@ public sealed partial class MainForm
             Dock=DockStyle.Fill,ColumnCount=1,RowCount=4,BackColor=Surface,Padding=new Padding(12)
         };
         root.RowStyles.Add(new RowStyle(SizeType.Absolute,66));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute,154));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute,185));
         root.RowStyles.Add(new RowStyle(SizeType.Percent,100));
         root.RowStyles.Add(new RowStyle(SizeType.Absolute,76));
         page.Controls.Add(root);
@@ -35,22 +36,27 @@ public sealed partial class MainForm
             Dock=DockStyle.Fill,TextAlign=ContentAlignment.MiddleLeft };
         root.Controls.Add(title,0,0);
 
-        var header = new FlowLayoutPanel {
-            Dock=DockStyle.Fill,FlowDirection=FlowDirection.LeftToRight,WrapContents=true,
-            BackColor=Surface,Padding=new Padding(2,2,0,0)
+        var header = new TableLayoutPanel {
+            Dock=DockStyle.Fill,ColumnCount=1,RowCount=2,BackColor=Surface
         };
-        _catalogQuery.Width=350;
-        _catalogQuery.PlaceholderText="Buscar nome, categoria, ID ou descrição...";
+        header.RowStyles.Add(new RowStyle(SizeType.Absolute,50));
+        header.RowStyles.Add(new RowStyle(SizeType.Percent,100));
+        _catalogQuery.PlaceholderText="Buscar produtos, categoria ou código MLB...";
         _catalogQuery.MaxLength=100;
-        header.Controls.Add(_catalogQuery);
-        header.Controls.Add(ButtonOf("Importar CSV/XLSX",async ()=>await ImportCatalogFileAsync(),true,170));
-        header.Controls.Add(ButtonOf("Reunir salvos",async ()=>await SyncStudioCatalogAsync(),false,145));
-        header.Controls.Add(ButtonOf("Exportar Excel",async ()=>await ExportCatalogAsync(),false,152));
-        header.Controls.Add(ButtonOf("Atualizar anúncio",async ()=>await VerifyCatalogEntryAsync(),false,167));
-        header.Controls.Add(ButtonOf("Usar no Studio",PromoteCatalogEntry,false,148));
-        header.Controls.Add(ButtonOf("Confirmar link",ConfirmCatalogAffiliate,false,150));
-        header.Controls.Add(ButtonOf("Mais vendidos · categoria",async ()=>await CollectHighlightsAsync(),false,205));
-        header.Controls.Add(ButtonOf("Abrir planilha",OpenAutoCatalogExcel,false,150));
+        header.Controls.Add(CreateSearchControl(_catalogQuery),0,0);
+        var commands=new FlowLayoutPanel {
+            Dock=DockStyle.Fill,FlowDirection=FlowDirection.LeftToRight,WrapContents=true,
+            BackColor=Surface,Padding=new Padding(2)
+        };
+        commands.Controls.Add(ButtonOf("Importar CSV/XLSX",async ()=>await ImportCatalogFileAsync(),true,170));
+        commands.Controls.Add(ButtonOf("Reunir salvos",async ()=>await SyncStudioCatalogAsync(),false,145));
+        commands.Controls.Add(ButtonOf("Exportar Excel",async ()=>await ExportCatalogAsync(),false,152));
+        commands.Controls.Add(ButtonOf("Atualizar anúncio",async ()=>await VerifyCatalogEntryAsync(),false,167));
+        commands.Controls.Add(ButtonOf("Usar no Studio",PromoteCatalogEntry,false,148));
+        commands.Controls.Add(ButtonOf("Confirmar link",ConfirmCatalogAffiliate,false,150));
+        commands.Controls.Add(ButtonOf("Mais vendidos · categoria",async ()=>await CollectHighlightsAsync(),false,205));
+        commands.Controls.Add(ButtonOf("Abrir planilha",OpenAutoCatalogExcel,false,150));
+        header.Controls.Add(commands,0,1);
         root.Controls.Add(header,0,1);
 
         _catalogGrid.Dock=DockStyle.Fill;
@@ -78,7 +84,15 @@ public sealed partial class MainForm
         _catalogGrid.Columns.Add(new DataGridViewTextBoxColumn{HeaderText="Preço informado",DataPropertyName=nameof(CatalogEntry.Price),Width=118});
         _catalogGrid.Columns.Add(new DataGridViewTextBoxColumn{HeaderText="Origem",DataPropertyName=nameof(CatalogEntry.Origin),Width=92});
         _catalogGrid.Columns.Add(new DataGridViewTextBoxColumn{HeaderText="Verificado UTC",DataPropertyName=nameof(CatalogEntry.LastVerifiedUtc),Width=175});
-        root.Controls.Add(_catalogGrid,0,2);
+        var catalogBody = new TableLayoutPanel {
+            Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1
+        };
+        catalogBody.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        catalogBody.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 305));
+        catalogBody.Controls.Add(_catalogGrid,0,0);
+        catalogBody.Controls.Add(BuildCatalogPhotoPanel(),1,0);
+        root.Controls.Add(catalogBody,0,2);
+        _catalogGrid.SelectionChanged += (_, _) => OnCatalogPhotoSelectionChanged();
 
         var bottom = new Panel {Dock=DockStyle.Fill,BackColor=Surface};
         _catalogInfo.ForeColor=Muted;
@@ -86,6 +100,12 @@ public sealed partial class MainForm
         _catalogInfo.Dock=DockStyle.Fill;
         _catalogInfo.Padding=new Padding(4,3,0,0);
         _catalogInfo.Text="Referências offline não comprovam preço ou disponibilidade. Links requerem confirmação humana.";
+        _catalogIncludeHistorical.Text="Incluir base histórica em espanhol (2019)";
+        _catalogIncludeHistorical.ForeColor=Muted;
+        _catalogIncludeHistorical.AutoSize=true;
+        _catalogIncludeHistorical.Dock=DockStyle.Top;
+        _catalogIncludeHistorical.CheckedChanged+=(_,_)=>RefreshCatalog();
+        bottom.Controls.Add(_catalogIncludeHistorical);
         _autoCatalogExcel.Text="Atualizar catálogo Excel automaticamente após alterações";
         _autoCatalogExcel.ForeColor=Foreground;
         _autoCatalogExcel.BackColor=Surface;
@@ -122,7 +142,8 @@ public sealed partial class MainForm
     {
         try
         {
-            var items=_catalog.Search(_catalogQuery.Text,200);
+            var items=_catalog.Search(_catalogQuery.Text,200,
+                includeHistorical:_catalogIncludeHistorical.Checked);
             var previousKey=SelectedCatalogEntry()?.Key;
             _catalogGrid.DataSource=null;
             _catalogGrid.DataSource=items;
@@ -132,8 +153,11 @@ public sealed partial class MainForm
                     if (row.DataBoundItem is CatalogEntry x && x.Key==previousKey) {
                         row.Selected=true;_catalogGrid.CurrentCell=row.Cells[0];break;
                     }
-            _catalogInfo.Text=$"{_catalog.Count():N0} registro(s) indexado(s); {items.Count} exibido(s). " +
-                "Referências históricas não garantem anúncio atual ou comissão.";
+            _catalogInfo.Text=$"{_catalog.Count():N0} registro(s) no total; {items.Count} exibido(s). " +
+                (_catalogIncludeHistorical.Checked
+                    ? "Inclui base histórica ES. "
+                    : "Pesquisa brasileira; marque a opção para incluir ES 2019. ") +
+                "Referências não garantem anúncio atual ou comissão.";
         }
         catch(Exception ex) { _catalogInfo.Text="Falha no catálogo: "+ex.Message; }
     }
@@ -320,9 +344,13 @@ public sealed partial class MainForm
         _suppressProductNameLookup=true;
         _name.Text=ProductTitleFormatter.Suggest(row.Name);
         _suppressProductNameLookup=false;
-        _source.Text="Mercado Livre";
+        _source.Text = SidebarSearchItem.IsHistoricalSpanish(row)
+            ? "Referência histórica MeLi 2019 (ES)"
+            : row.Kind == "offline" ? "Catálogo importado" : "Mercado Livre";
         _description.Text=row.Description[..Math.Min(row.Description.Length,_description.MaxLength)];
         _category.Text=row.Category;
+        if (!string.IsNullOrWhiteSpace(row.ImageUrl))
+            _ = ShowProductSuggestionPreviewAsync(row.ImageUrl);
         if(row.Kind=="listing")
         {
             _externalId.Text=row.ExternalId;
@@ -334,7 +362,18 @@ public sealed partial class MainForm
         SelectSavedProductCategory(_current);
         _pinTitle.Text=_name.Text[..Math.Min(_name.Text.Length,100)];
         _tabs.SelectedIndex=0;
-        _footer.Text="Referência carregada do catálogo. Revise nome, anúncio, descrição e link antes de Salvar.";
+        _footer.Text = SidebarSearchItem.IsHistoricalSpanish(row)
+            ? "Base histórica em espanhol (2019), sem anúncio ou imagem atual. Busque um anúncio brasileiro antes de divulgar."
+            : "Referência carregada. Revise anúncio, descrição e link antes de Salvar.";
+        // Apenas IDs do catálogo oficial brasileiro podem ser enriquecidos.
+        if (row.Kind is "listing" or "catalog" &&
+            !string.IsNullOrWhiteSpace(row.ExternalId) &&
+            MercadoLivreBridgeService.ValidRepository(MercadoLivreBridgeService.SavedRepository))
+            _ = EnrichSelectedProductAsync(new ProductNameSuggestion {
+                Kind = row.Kind, Id = row.ExternalId, Name = row.Name,
+                CategoryId = row.CategoryId, Permalink = row.ListingUrl,
+                Thumbnail = row.ImageUrl
+            }, _current?.Id ?? "");
     }
 
     private async Task VerifyCatalogEntryAsync()
@@ -366,8 +405,10 @@ public sealed partial class MainForm
                 Category= result.Categories.LastOrDefault()?.Name ?? entry.Category,
                 CategoryId=result.Categories.FirstOrDefault()?.Id ?? entry.CategoryId,
                 SubcategoryId=result.Categories.LastOrDefault()?.Id ?? entry.SubcategoryId,
-                Description=details.Description,ListingUrl=entry.ListingUrl,
-                ImageUrl=entry.ImageUrl,Price=entry.Price,Currency=entry.Currency,
+                Description=details.Description,
+                ListingUrl=ProductInputValidator.IsMercadoLivreListing(details.Permalink) ? details.Permalink : entry.ListingUrl,
+                ImageUrl=string.IsNullOrWhiteSpace(details.Thumbnail) ? entry.ImageUrl : details.Thumbnail,
+                Price=entry.Price,Currency=entry.Currency,
                 LastVerifiedUtc=verified?DateTime.UtcNow.ToString("O"):"",
                 SourceFile="API detalhes oficiais"
             };

@@ -143,23 +143,24 @@ public sealed class CatalogRepository
         return Convert.ToInt32(cmd.ExecuteScalar());
     }
 
-    public List<CatalogEntry> Search(string query, int limit = 200)
+    public List<CatalogEntry> Search(string query, int limit = 200, bool includeHistorical = true)
     {
         limit = Math.Clamp(limit, 1, 2000);
         using var db = Open();
         using var cmd = db.CreateCommand();
+        var historyFilter = includeHistorical ? "" : "AND category NOT LIKE 'MeLi 2019 /%' AND source_file NOT LIKE 'meli_2019_es_%'";
         var words = Regex.Matches(query ?? "", @"[\p{L}\p{N}]+")
             .Select(m => m.Value).Where(s => s.Length >= 2).Take(5).ToArray();
         if (words.Length == 0)
         {
-            cmd.CommandText = $"SELECT {SelectColumns} FROM catalog_entries ORDER BY updated_utc DESC LIMIT $lim";
+            cmd.CommandText = $"SELECT {SelectColumns} FROM catalog_entries WHERE 1=1 {historyFilter} ORDER BY updated_utc DESC LIMIT $lim";
         }
         else
         {
             cmd.CommandText = $"""
                 SELECT {SelectColumns} FROM catalog_entries
-                WHERE rowid IN (SELECT rowid FROM catalog_fts WHERE catalog_fts MATCH $q)
-                    OR external_id LIKE $external
+                WHERE (rowid IN (SELECT rowid FROM catalog_fts WHERE catalog_fts MATCH $q)
+                    OR external_id LIKE $external) {historyFilter}
                 ORDER BY updated_utc DESC LIMIT $lim
                 """;
             cmd.Parameters.AddWithValue("$q", string.Join(" AND ", words.Select(w => "\"" + w.Replace("\"", "") + "\"*")));
@@ -172,7 +173,7 @@ public sealed class CatalogRepository
             cmd.Parameters.Clear();
             cmd.CommandText = $"""
                 SELECT {SelectColumns} FROM catalog_entries
-                WHERE name LIKE $q OR category LIKE $q OR external_id LIKE $q
+                WHERE (name LIKE $q OR category LIKE $q OR external_id LIKE $q) {historyFilter}
                 ORDER BY updated_utc DESC LIMIT $lim
                 """;
             cmd.Parameters.AddWithValue("$q", "%" + (query ?? "").Trim()[..Math.Min((query ?? "").Trim().Length, 100)] + "%");

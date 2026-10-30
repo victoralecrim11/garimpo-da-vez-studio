@@ -100,7 +100,7 @@ public sealed partial class MainForm
                 .Select(p => new ProductNameSuggestion {
                     Name = p.Name, Id = p.ExternalId, Kind = "local", LocalProductId = p.Id
                 }).ToList();
-        foreach (var row in term.Length >= 2 ? _catalog.Search(term, 8) : new List<GarimpoDaVezStudio.Data.CatalogEntry>())
+        foreach (var row in term.Length >= 2 ? _catalog.Search(term, 8, includeHistorical: false) : new List<GarimpoDaVezStudio.Data.CatalogEntry>())
         {
             if (matches.Any(s => string.Equals(s.Name,row.Name,StringComparison.OrdinalIgnoreCase)))continue;
             matches.Add(new ProductNameSuggestion{ Kind="offline",Name=row.Name,CatalogKey=row.Key });
@@ -255,6 +255,12 @@ public sealed partial class MainForm
                 return;
             var details = response.Suggestions.FirstOrDefault();
             if (details is null) return;
+            if (!string.IsNullOrWhiteSpace(details.Thumbnail))
+                _ = ShowProductSuggestionPreviewAsync(details.Thumbnail);
+            if (suggestion.Kind == "listing" &&
+                string.IsNullOrWhiteSpace(_listingUrl.Text) &&
+                ProductInputValidator.IsMercadoLivreListing(details.Permalink))
+                _listingUrl.Text = details.Permalink;
             var descriptionAdded = false;
             if (!string.IsNullOrWhiteSpace(details.Description) &&
                 string.IsNullOrWhiteSpace(_description.Text))
@@ -414,32 +420,4 @@ public sealed partial class MainForm
         _ = EnrichSelectedProductAsync(suggestion, _current?.Id ?? "");
     }
 
-    private async Task ShowProductSuggestionPreviewAsync(string urlString)
-    {
-        // Apenas prévia temporária na memória. Não equivale à autorização para baixar ou divulgar.
-        if (!Uri.TryCreate(urlString, UriKind.Absolute, out var url) ||
-            url.Scheme != Uri.UriSchemeHttps || url.UserInfo.Length > 0 || !url.IsDefaultPort)
-            return;
-        var host = url.IdnHost.ToLowerInvariant();
-        if (host != "mlstatic.com" && !host.EndsWith(".mlstatic.com", StringComparison.Ordinal)) return;
-        try
-        {
-            using var response = await ThumbnailClient.GetAsync(url,
-                HttpCompletionOption.ResponseHeadersRead);
-            if (!response.IsSuccessStatusCode || response.Content.Headers.ContentLength > 4_000_000)
-                return;
-            var mime = response.Content.Headers.ContentType?.MediaType ?? "";
-            if (!mime.StartsWith("image/", StringComparison.OrdinalIgnoreCase)) return;
-            var buffer = await response.Content.ReadAsByteArrayAsync();
-            if (buffer.Length > 4_000_000) return;
-            using var data = new MemoryStream(buffer);
-            using var image = Image.FromStream(data);
-            var copy = new Bitmap(image);
-            if (_originalPreview.IsDisposed) { copy.Dispose(); return; }
-            var previous = _originalPreview.Image;
-            _originalPreview.Image = copy;
-            previous?.Dispose();
-        }
-        catch (Exception) { /* Prévia opcional; não altera o cadastro. */ }
-    }
 }
